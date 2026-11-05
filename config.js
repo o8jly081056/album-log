@@ -1,0 +1,9 @@
+// 設定檔：這三個值都是「公開」的，放進網頁裡是安全的（真正的保護靠 Supabase 的資料列權限）
+// 留空的話，對應功能會自動隱藏，App 仍可在單機模式使用。
+window.HEARD_CONFIG = {
+  // Spotify 開發者後台 → 你的 App → Client ID
+  SPOTIFY_CLIENT_ID: '',
+  // Supabase → Project Settings → API
+  SUPABASE_URL: '',
+  SUPABASE_ANON_KEY: ''
+};

@@ -1,0 +1,14 @@
+{
+  "name": "聽過 · 唱片書籤",
+  "short_name": "聽過",
+  "description": "記錄你聽過哪些專輯與 EP",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#121212",
+  "lang": "zh-Hant",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
