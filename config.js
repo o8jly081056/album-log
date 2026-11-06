@@ -4,6 +4,6 @@ window.HEARD_CONFIG = {
   // Spotify 開發者後台 → 你的 App → Client ID
   SPOTIFY_CLIENT_ID: '',
   // Supabase → Project Settings → API
-  SUPABASE_URL: '',
-  SUPABASE_ANON_KEY: ''
+  SUPABASE_URL: 'https://nlmjgfwzjxmulekdlhid.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sbWpnZnd6anhtdWxla2RsaGlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5NDQwNDEsImV4cCI6MjEwOTUyMDA0MX0.Q5qVXEndD8X4JZCs7iw70LktEN-hn-hAIatOI-uaoFg'
 };
