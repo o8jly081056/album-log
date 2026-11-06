@@ -1,5 +1,5 @@
 // 離線快取：App 本體可離線開啟；搜尋與封面仍需網路
-const CACHE = 'heard-v3';
+const CACHE = 'heard-v4';
 const SHELL = ['./', 'index.html', 'app.js', 'config.js', 'manifest.webmanifest', 'icon.svg', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -12,7 +12,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin === location.origin) {
     // 網路優先，失敗才用快取（確保更新能立即看到）
-    e.respondWith(fetch(e.request).then(r => {
+    e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(r => {
       const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r;
     }).catch(() => caches.match(e.request)));
   } else if (url.hostname.endsWith('mzstatic.com')) {
