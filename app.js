@@ -539,11 +539,12 @@ function openMenu() {
         <div class="muted small">${syncing ? '同步中…' : state.syncErr ? '同步失敗：' + esc(state.syncErr) : db.lastSync ? '上次同步 ' + new Date(db.lastSync).toLocaleString('zh-TW', { hour12: false }) : '尚未同步'}</div></div>
         <button class="btn sm" data-act="syncNow">立即同步</button></div>
         <div style="margin-top:10px"><button class="btn sm" data-act="logout">登出</button></div></div>`
-    : L.sent ? `<div class="panel"><div class="small muted">驗證碼已寄到 ${esc(L.email)}</div>
-        <form id="otpForm" style="display:flex;gap:8px;margin-top:8px"><input id="otp" inputmode="numeric" autocomplete="one-time-code" placeholder="6 位數驗證碼" maxlength="8"><button class="btn primary" type="submit">登入</button></form>
-        ${L.err ? `<div class="err">${esc(L.err)}</div>` : ''}<button class="btn sm" style="margin-top:10px" data-act="loginReset">換一個 Email</button></div>`
-    : `<div class="panel"><div class="small muted">用 Email 登入，手機和電腦就會自動同步</div>
-        <form id="emailForm" style="display:flex;gap:8px;margin-top:8px"><input id="email" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(L.email || '')}"><button class="btn primary" type="submit">寄驗證碼</button></form>
+    : `<div class="panel"><div class="small muted">登入後，手機和電腦會自動同步。第一次使用請按「註冊」，之後每台裝置都用同一組帳密登入。</div>
+        <form id="loginForm" style="margin-top:8px">
+          <input id="email" type="email" autocomplete="email" placeholder="Email" value="${esc(L.email || '')}" required>
+          <input id="pw" type="password" autocomplete="current-password" placeholder="密碼（至少 6 個字）" minlength="6" required style="margin-top:8px">
+          <div class="btn-row"><button class="btn" type="submit" name="signup">註冊</button><button class="btn primary" type="submit">登入</button></div>
+        </form>
         ${L.err ? `<div class="err">${esc(L.err)}</div>` : ''}</div>`;
   const spBlock = !CFG.SPOTIFY_CLIENT_ID ? '<div class="muted small">尚未設定 Spotify（見 SETUP.md）</div>'
     : spOn() ? `<div class="panel row-between"><span>✓ 已連結 Spotify</span><button class="btn sm" data-act="spLogout">中斷連結</button></div>`
@@ -562,16 +563,19 @@ function openMenu() {
       <select id="country">${[['TW', '台灣'], ['US', '美國'], ['JP', '日本'], ['KR', '韓國'], ['HK', '香港'], ['GB', '英國']].map(([c, l]) => `<option value="${c}" ${db.settings.country === c ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
   showSheet();
   $('#country').onchange = e => { db.settings.country = e.target.value; cache.clear(); save(); toast('已切換地區'); };
-  const ef = $('#emailForm'); if (ef) ef.onsubmit = async e => {
-    e.preventDefault(); L.email = $('#email').value.trim(); L.err = '';
-    const { error } = await sb.auth.signInWithOtp({ email: L.email, options: { shouldCreateUser: true } });
-    if (error) L.err = error.message; else L.sent = true;
-    openMenu();
-  };
-  const of = $('#otpForm'); if (of) of.onsubmit = async e => {
+  const lf = $('#loginForm'); if (lf) lf.onsubmit = async e => {
     e.preventDefault(); L.err = '';
-    const { data, error } = await sb.auth.verifyOtp({ email: L.email, token: $('#otp').value.trim(), type: 'email' });
-    if (error) { L.err = '驗證碼錯誤或已過期'; return openMenu(); }
+    const signup = e.submitter?.name === 'signup';
+    L.email = $('#email').value.trim();
+    const cred = { email: L.email, password: $('#pw').value };
+    e.submitter && (e.submitter.disabled = true);
+    const { data, error } = signup ? await sb.auth.signUp(cred) : await sb.auth.signInWithPassword(cred);
+    if (error) {
+      L.err = /invalid login/i.test(error.message) ? 'Email 或密碼錯誤（還沒註冊的話請先按「註冊」）'
+        : /already registered/i.test(error.message) ? '這個 Email 已經註冊過了，請直接按「登入」' : error.message;
+      return openMenu();
+    }
+    if (!data.session) { L.err = '註冊成功，但需要先到信箱點確認信。若不想收信，請到 Supabase 關閉 Confirm email。'; return openMenu(); }
     sbUser = data.user; state.login = {};
     Object.keys(db.albums).forEach(k => db.dirty[k] = 1); // 第一次登入：把本機全部推上去
     Object.keys(db.deleted).forEach(k => db.dirty[k] = 1);

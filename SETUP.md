@@ -41,12 +41,8 @@ App 只會讀取：正在播放、最近播放、收藏的專輯。**不會自�
 
 1. 到 <https://supabase.com> 註冊 → **New project**（地區選 Tokyo 或 Singapore）
 2. 左側 **SQL Editor** → 貼上 `supabase.sql` 全部內容 → **Run**
-3. 左側 **Authentication → Emails → Magic Link** 模板，把內容換成：
-   ```html
-   <h2>聽過 · 登入驗證碼</h2>
-   <p>你的驗證碼：<b>{{ .Token }}</b></p>
-   ```
-   （用驗證碼而不是連結，是因為 iPhone 主畫面 App 點信中連結會跳到 Safari，登入狀態帶不回 App）
+3. 左側 **Authentication → Sign In / Providers** → 點 **Email** → 把 **Confirm email** 關掉 → **Save**
+   （App 用 Email＋密碼登入，不寄任何信，所以不需要設定 SMTP 或信件模板）
 4. **Authentication → URL Configuration** → Site URL 填上面的網址
 5. **Project Settings → API** 複製 **Project URL** 和 **anon / publishable key**
 
