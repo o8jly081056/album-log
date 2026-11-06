@@ -507,6 +507,7 @@ function renderSheet() {
   const spotify = a.spotifyId ? `https://open.spotify.com/album/${a.spotifyId}` : `https://open.spotify.com/search/${encodeURIComponent(a.artist + ' ' + a.title)}`;
   const fmt = ms => ms ? `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}` : '';
   $('#sheet').innerHTML = `<div class="grab"></div><div class="detail">
+    ${state.npKey === k && state.sp.np ? `<div style="text-align:center;margin:-4px 0 10px" class="small muted">${state.sp.np.playing ? '<span class="eq"><i></i><i></i><i></i></span>正在播放' : '⏸ 暫停中'}：${esc(state.sp.np.track)}</div>` : ''}
     <div class="detail-cover">${a.cover ? `<img src="${esc(a.cover)}" alt="">` : '<div class="ph" style="font-size:60px">♪</div>'}</div>
     <h2>${esc(a.title)}</h2>
     <div class="by"><button data-artist="${a.artistId || ''}" data-name="${esc(a.artist)}" style="color:inherit;font-weight:inherit">${esc(a.artist)} ›</button></div>
@@ -677,11 +678,35 @@ $('#scrim').onclick = closeSheet;
   s.addEventListener('touchend', e => { if (y0 === null) return; const dy = e.changedTouches[0].clientY - y0; s.style.transform = ''; if (dy > 110) closeSheet(); y0 = null; });
 })();
 
+/* ================= 快速標記：網址加 ?np 直接跳出「正在播放」的專輯（給 iPhone 捷徑／背面輕點用） ================= */
+async function quickNowPlaying() {
+  if (!CFG.SPOTIFY_CLIENT_ID) return;
+  if (!spOn()) {
+    state.current = null;
+    $('#sheet').innerHTML = `<div class="grab"></div><div style="text-align:center;padding:10px 0 4px">
+      <h2 style="margin:0 0 6px">先連結 Spotify</h2>
+      <div class="muted small">這個瀏覽器還沒連結 Spotify，連結一次之後就能一鍵標記正在播放的專輯</div>
+      <div class="two"><button class="big-btn solid" data-act="spLogin">連結 Spotify</button></div></div>`;
+    return showSheet();
+  }
+  $('#sheet').innerHTML = '<div class="grab"></div><div class="spinner"></div>'; showSheet();
+  try {
+    const v = await spNowPlaying();
+    state.sp.np = v;
+    if (!v) { hideSheet(); render(); return toast('Spotify 目前沒有在播放'); }
+    state.npKey = albumKey(v.album);
+    openAlbum(state.npKey);
+  } catch (e) { hideSheet(); render(); toast(e.message); }
+}
+
 /* ================= 啟動 ================= */
 (async () => {
   save();
   await spotifyCallback();
+  const wantNp = new URLSearchParams(location.search).has('np');
+  if (wantNp) history.replaceState(null, '', spRedirect());
   render();
   initSync();
+  if (wantNp) quickNowPlaying();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
