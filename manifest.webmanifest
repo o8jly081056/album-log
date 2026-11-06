@@ -1,7 +1,7 @@
 {
-  "name": "聽過 · 唱片書籤",
-  "short_name": "聽過",
-  "description": "記錄你聽過哪些專輯與 EP",
+  "name": "SHeard",
+  "short_name": "SHeard",
+  "description": "Mark the albums and EPs you've heard.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -9,6 +9,16 @@
   "theme_color": "#121212",
   "lang": "zh-Hant",
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }

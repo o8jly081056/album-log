@@ -1,14 +1,14 @@
-# 聽過 · 設定教學
+# SHeard · 設定教學
 
 App 不做任何設定也能用（單機模式）。以下三步做完，就會有 **手機安裝、Spotify、跨裝置同步**。
 
-網址預定為：`https://o8jly081056.github.io/album-log/`
+網址預定為：`https://o8jly081056.github.io/sheard/`
 
 ---
 
 ## 1. 部署到 GitHub Pages（由 Claude 處理）
 
-- 程式碼放在 GitHub 的 `album-log` repo，GitHub Pages 會**自動**把它發佈成網站。
+- 程式碼放在 GitHub 的 `sheard` repo，GitHub Pages 會**自動**把它發佈成網站。
 - 之後每次更新只要 `git push`，約 1 分鐘後網站就是新版，**不用手動重新部署**。
 - 手機上已安裝的 App 下次打開會自動抓新版（若沒變，關掉 App 再開一次）。
 
@@ -25,9 +25,9 @@ App 不做任何設定也能用（單機模式）。以下三步做完，就會�
 
 1. 到 <https://developer.spotify.com/dashboard> 用你的 Spotify 帳號登入 → **Create app**
 2. 填寫：
-   - App name：`聽過`（隨意）
+   - App name：`SHeard`
    - Redirect URIs（兩個都加）：
-     - `https://o8jly081056.github.io/album-log/`
+     - `https://o8jly081056.github.io/sheard/`
      - `http://127.0.0.1:8644/`（電腦本機測試用）
    - 勾選 **Web API**
 3. 建立後到 **Settings** 複製 **Client ID**

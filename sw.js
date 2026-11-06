@@ -1,6 +1,6 @@
 // 離線快取：App 本體可離線開啟；搜尋與封面仍需網路
-const CACHE = 'heard-v2';
-const SHELL = ['./', 'index.html', 'app.js', 'config.js', 'manifest.webmanifest', 'icon.svg'];
+const CACHE = 'heard-v3';
+const SHELL = ['./', 'index.html', 'app.js', 'config.js', 'manifest.webmanifest', 'icon.svg', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

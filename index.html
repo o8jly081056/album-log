@@ -6,16 +6,16 @@
 <meta name="theme-color" content="#121212">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="聽過">
-<title>聽過 · 唱片書籤</title>
+<meta name="apple-mobile-web-app-title" content="SHeard">
+<title>SHeard</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
 :root{
   --bg:#121212; --bg2:#1c1c1e; --bg3:#2a2a2d; --line:#333338;
   --fg:#f2f2f2; --fg2:#a8a8ae; --fg3:#6c6c72;
-  --accent:#f5a524; --accent-fg:#1a1200; --heard:#3ecf8e; --want:#7aa7ff;
+  --accent:#2ad468; --accent-fg:#04210f; --heard:#2ad468; --star:#f5c542; --want:#7aa7ff;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
 }
@@ -32,7 +32,7 @@ header.top .sub{color:var(--fg2);font-size:13px}
 .icon-btn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--bg2);flex:none;position:relative}
 .icon-btn:active{transform:scale(.94)}
 .dot{position:absolute;right:2px;top:2px;width:9px;height:9px;border-radius:50%;background:var(--heard);border:2px solid var(--bg)}
-.dot.off{background:var(--fg3)} .dot.busy{background:var(--accent)}
+.dot.off{background:var(--fg3)} .dot.busy{background:var(--star)}
 .search{position:relative;margin-bottom:10px}
 .search input{padding-left:38px;height:44px;border-radius:12px}
 .search svg{position:absolute;left:12px;top:13px;opacity:.6}
@@ -116,7 +116,7 @@ nav.tabs button.on svg{color:var(--accent)}
 .btn-row .btn{flex:1}
 .stars{display:flex;justify-content:center;gap:6px;margin-top:14px}
 .stars button{font-size:28px;color:var(--fg3);line-height:1}
-.stars button.on{color:var(--accent)}
+.stars button.on{color:var(--star)}
 .field{margin-top:12px}
 .field label{display:block;font-size:12.5px;color:var(--fg2);margin-bottom:5px}
 .tracks{margin-top:14px;border-top:1px solid var(--line)}

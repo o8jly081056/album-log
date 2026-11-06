@@ -1,4 +1,4 @@
-/* 聽過 · 唱片書籤 v2
+/* SHeard · 唱片書籤 v2
  * 資料：本機 localStorage 為主，登入後與 Supabase 雙向同步（新的修改勝出）
  * 目錄：iTunes Search API（免金鑰）；Spotify 只用來看「正在播放／最近播放／收藏」，一律手動標記
  */
