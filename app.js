@@ -68,7 +68,6 @@ function setStatus(k, status) {
   const now = Date.now();
   if (!status) {
     if (!cur) return;
-    if (cur.manual && !confirm('這是手動新增的唱片，移除後資料會刪除，確定？')) return false;
     seen.set(k, cur); delete db.albums[k]; db.deleted[k] = now;
   } else if (cur) {
     cur.status = status; cur.updatedAt = now;
@@ -82,8 +81,40 @@ function setStatus(k, status) {
   db.dirty[k] = 1; save(); scheduleSync();
   return true;
 }
-function toggle(k, status) {
+/* 防呆確認視窗，回傳 true / false */
+function ask({ title, msg = '', ok = '確定', cancel = '保留' }) {
+  return new Promise(done => {
+    const el = document.createElement('div');
+    el.className = 'dialog';
+    el.innerHTML = `<div class="dialog-box" role="alertdialog" aria-modal="true">
+      <h3>${esc(title)}</h3>${msg ? `<p>${msg}</p>` : ''}
+      <div class="dialog-btns"><button class="btn" data-r="0">${esc(cancel)}</button><button class="btn danger" data-r="1">${esc(ok)}</button></div></div>`;
+    const close = r => { el.classList.remove('show'); setTimeout(() => el.remove(), 180); done(r); };
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const b = e.target.closest('[data-r]');
+      if (b) close(b.dataset.r === '1'); else if (e.target === el) close(false);
+    });
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+  });
+}
+const statusName = s => s === 'heard' ? '已聽過' : '想聽';
+async function toggle(k, status) {
   const was = statusOf(k);
+  const a = db.albums[k];
+  // 取消標記，或把「已聽過」改成「想聽」時，先確認
+  if (a && (was === status || was === 'heard')) {
+    const removing = was === status;
+    const extra = removing && a.manual ? '<br><b>這是手動新增的唱片，取消後整筆資料會刪除。</b>'
+      : removing && (a.rating || a.note) ? '<br>評分和筆記也會一起清除。' : '';
+    const ok = await ask({
+      title: removing ? `取消「${statusName(was)}」？` : '從「已聽過」改成「想聽」？',
+      msg: `<b>${esc(a.title)}</b><br><span class="muted">${esc(a.artist)}</span>${extra}`,
+      ok: removing ? `取消${statusName(was)}` : '改成想聽'
+    });
+    if (!ok) return;
+  }
   if (setStatus(k, was === status ? null : status) === false) return;
   toast(was === status ? (status === 'heard' ? '已取消「已聽過」' : '已移出想聽') : (status === 'heard' ? '✓ 已聽過' : '🔖 加入想聽'));
   if (state.current) renderSheet();
