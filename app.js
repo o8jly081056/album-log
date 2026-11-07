@@ -453,7 +453,7 @@ function renderLib(app) {
   const isH = status === 'heard';
   const view = viewOf(status);
   app.innerHTML = `
-    <header class="top"><div><h1>${isH ? '已聽過' : '想聽'}</h1><div class="sub">${total} 張唱片 · ${artists} 位歌手${list.length !== total ? ` · 目前顯示 ${list.length} 張` : ''}</div></div>${gearBtn()}</header>
+    <header class="top"><div><h1>${isH ? '已聽過' : '想聽'}</h1><div class="sub">${total} 張唱片 · ${artists} 位歌手</div></div>${gearBtn()}</header>
     ${total ? `<div class="search">${I.search}<input id="lq" type="search" placeholder="在${isH ? '已聽過' : '想聽'}裡搜尋" value="${esc(state.libQ)}"></div>
     ${chipBar('lib', RELEASES, state.libFilter)}
     <div class="row-between" style="margin-bottom:12px">
@@ -551,7 +551,7 @@ function renderArtists(app) {
   });
   const list = [...map.values()].sort((a, b) => b.heard.length - a.heard.length || a.name.localeCompare(b.name, 'zh-Hant'));
   app.innerHTML = `
-    <header class="top"><div><h1>歌手</h1><div class="sub">點進去看完整作品，哪些聽過一目了然</div></div>${gearBtn()}</header>
+    <header class="top"><h1>歌手</h1>${gearBtn()}</header>
     ${list.length ? `<div class="list">${list.map(x => {
       const c = (x.heard[0] || x.want[0]).cover;
       const pg = artistProgress(x.name);
