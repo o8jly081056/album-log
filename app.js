@@ -547,15 +547,10 @@ async function renderArtist(app) {
     } catch (e) { v.albums = []; toast(e.message || '載入失敗'); }
     if (state.view !== v) return;
   }
-  if (v.filter === 'appears' && !v.appears && spOn() && isSpId(v.id)) {
-    v.appears = 'loading';
-    artistAlbums(v.id, 'appears_on').then(x => { v.appears = x; }).catch(e => { v.appears = []; toast(e.message); }).then(() => { if (state.view === v) render(); });
-  }
   const keys = new Set(v.albums.map(albumKey));
   const own = remember([...v.albums, ...local.filter(a => !keys.has(albumKey(a)))]);
-  const appears = Array.isArray(v.appears) ? remember(v.appears) : [];
-  const ARTIST_OPTS = [...RELEASES, ['appears', '參與的專輯']];
-  const all = v.filter === 'appears' ? appears : own.filter(a => inGroup(a, v.filter));
+  const ARTIST_OPTS = RELEASES;
+  const all = own.filter(a => inGroup(a, v.filter));
   const groups = v.filter ? [[v.filter, ARTIST_OPTS.find(o => o[0] === v.filter)[1]]] : RELEASES;
   const counted = all;
   const heard = counted.filter(a => statusOf(albumKey(a)) === 'heard').length;
@@ -571,14 +566,13 @@ async function renderArtist(app) {
       </div>
     </div>
     ${chipBar('artist', ARTIST_OPTS, v.filter || null, 'margin-bottom:4px')}
-    ${v.filter === 'appears' && v.appears === 'loading' ? '<div class="spinner"></div>' : ''}
     ${groups.map(([t, l]) => {
-      const g = t === 'appears' ? all : all.filter(a => inGroup(a, t));
+      const g = all.filter(a => inGroup(a, t));
       if (!g.length) return '';
       const h = g.filter(a => statusOf(albumKey(a)) === 'heard').length;
       return `<div class="section-h"><span>${l} · ${h}/${g.length}</span></div><div class="grid">${g.map(a => albumCard(a)).join('')}</div>`;
     }).join('')}
-    ${!all.length && v.appears !== 'loading' ? '<div class="empty">這個分類沒有作品</div>' : '<div class="empty small">資料來自 Spotify。EP 依 Spotify 的單曲／專輯分類與曲數判斷，可能不完全準確</div>'}`;
+    ${!all.length ? '<div class="empty">這個分類沒有作品</div>' : '<div class="empty small">資料來自 Spotify。EP 依 Spotify 的單曲／專輯分類與曲數判斷，可能不完全準確</div>'}`;
 }
 
 /* ================= 專輯詳情 ================= */
