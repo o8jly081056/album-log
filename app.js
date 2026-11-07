@@ -545,9 +545,19 @@ async function renderArtist(app) {
 }
 
 /* ================= 專輯詳情 ================= */
-function showSheet() { $('#scrim').classList.add('show'); $('#sheet').classList.add('show'); }
-function hideSheet() { $('#scrim').classList.remove('show'); $('#sheet').classList.remove('show'); state.current = null; }
-function closeSheet() { hideSheet(); render(); }
+function showSheet() {
+  const s = $('#sheet');
+  s.scrollTop = 0;
+  $('#scrim').classList.add('show'); s.classList.add('show');
+  document.documentElement.classList.add('sheet-open');
+}
+function hideSheet() {
+  $('#scrim').classList.remove('show'); $('#sheet').classList.remove('show');
+  document.documentElement.classList.remove('sheet-open');
+  state.current = null;
+}
+// 關閉選單；rerender=true 時等收回動畫結束才重畫底下頁面，避免收回途中畫面閃動
+function closeSheet(rerender) { hideSheet(); if (rerender === true) setTimeout(render, 340); }
 
 async function loadTracks(k) {
   const a = findAlbum(k); if (!a || a._tracks || a.manual) return;
@@ -673,7 +683,7 @@ function openManual() {
     const a = { id: 'm' + Date.now(), title: f.title.trim(), artist: f.artist.trim(), artistId: '', type: f.type, year: f.year, cover: f.cover, tracks: 0, manual: true };
     const k = albumKey(a);
     if (db.albums[k]) return toast('這張已經在清單裡了');
-    seen.set(k, a); setStatus(k, f.status); closeSheet(); toast('✓ 已加入');
+    seen.set(k, a); setStatus(k, f.status); closeSheet(true); toast('✓ 已加入');
   };
 }
 function exportData() {
@@ -690,7 +700,7 @@ $('#importFile').onchange = async e => {
       const k = albumKey(a); if (db.albums[k]) return;
       db.albums[k] = { status: 'heard', ...a, updatedAt: Date.now() }; db.dirty[k] = 1; n++;
     });
-    save(); scheduleSync(); closeSheet(); toast(`匯入 ${n} 張新唱片`);
+    save(); scheduleSync(); closeSheet(true); toast(`匯入 ${n} 張新唱片`);
   } catch (err) { toast('檔案格式不正確'); }
   e.target.value = '';
 };
@@ -740,12 +750,46 @@ document.addEventListener('click', async e => {
 });
 document.addEventListener('change', e => { if (e.target.id === 'singles') { db.settings.showSingles = e.target.checked; save(); render(); } });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { syncNow(); if (state.tab === 'search' && !state.results) loadSpotifyHome(); } });
-$('#scrim').onclick = closeSheet;
-(() => { // 下滑關閉
-  let y0 = null; const s = $('#sheet');
-  s.addEventListener('touchstart', e => { y0 = s.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
-  s.addEventListener('touchmove', e => { if (y0 === null) return; const dy = e.touches[0].clientY - y0; if (dy > 0) s.style.transform = `translateY(${dy}px)`; }, { passive: true });
-  s.addEventListener('touchend', e => { if (y0 === null) return; const dy = e.changedTouches[0].clientY - y0; s.style.transform = ''; if (dy > 110) closeSheet(); y0 = null; });
+$('#scrim').onclick = () => closeSheet();
+(() => { // 下滑關閉：拖曳時 1:1 跟手，放開時依距離或速度決定收回或彈回
+  const s = $('#sheet'), scrim = $('#scrim');
+  let y0 = null, dy = 0, dragging = false, lastY = 0, lastT = 0, v = 0;
+  const reset = () => { s.style.transition = scrim.style.transition = ''; };
+  s.addEventListener('touchstart', e => {
+    if (e.touches.length > 1) { y0 = null; return; }
+    y0 = (s.scrollTop <= 0 || e.target.closest('.grab')) ? e.touches[0].clientY : null;
+    dy = 0; v = 0; dragging = false; lastY = y0; lastT = e.timeStamp;
+  }, { passive: true });
+  s.addEventListener('touchmove', e => {
+    if (y0 === null) return;
+    const y = e.touches[0].clientY;
+    dy = y - y0;
+    if (!dragging) {
+      if (dy < 4) { if (dy < -4) y0 = null; return; }   // 往上滑＝捲動內容，不拖曳
+      dragging = true;
+      s.style.transition = scrim.style.transition = 'none';
+    }
+    e.preventDefault();
+    const dt = e.timeStamp - lastT;
+    if (dt > 0) v = 0.8 * ((y - lastY) / dt) + 0.2 * v;  // 平滑後的速度（px/ms）
+    lastY = y; lastT = e.timeStamp;
+    const d = Math.max(0, dy);
+    s.style.transform = `translateY(${d}px)`;
+    scrim.style.opacity = String(Math.max(0, 1 - d / (s.offsetHeight || 1)));
+  }, { passive: false });
+  const end = () => {
+    if (y0 === null) return;
+    y0 = null;
+    if (!dragging) return;
+    dragging = false;
+    reset();
+    const close = dy > Math.min(160, s.offsetHeight * 0.3) || v > 0.45;
+    // 同一個畫格內移除 inline 樣式，讓動畫從手指放開的位置接續，不會先彈回再收
+    s.style.transform = ''; scrim.style.opacity = '';
+    if (close) closeSheet();
+  };
+  s.addEventListener('touchend', end);
+  s.addEventListener('touchcancel', end);
 })();
 
 /* ================= 快速標記：網址加 ?np 直接跳出「正在播放」的專輯（給 iPhone 捷徑／背面輕點用） ================= */
