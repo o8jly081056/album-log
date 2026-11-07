@@ -463,7 +463,7 @@ function renderLib(app) {
     ${total ? `<div class="search">${I.search}<input id="lq" type="search" placeholder="在${isH ? '已聽過' : '想聽'}裡搜尋" value="${esc(state.libQ)}"></div>
     ${chipBar('lib', RELEASES, state.libFilter)}
     <div class="row-between" style="margin-bottom:12px">
-      <button class="sort-btn" data-act="sortMenu">${I.sort}<span>${sdef.label(status)}</span><span class="muted">${sdef.dirs[so.desc ? 1 : 0]}</span></button>
+      <button class="sort-btn" data-act="sortMenu">${I.sort}<span>${sdef.label(status)}</span></button>
       <div style="display:flex;gap:8px;align-items:center">
         <div class="seg" role="group" aria-label="檢視方式">${VIEWS.map(([v, l]) => `<button class="${view === v ? 'on' : ''}" data-view="${v}" aria-label="${l}" title="${l}">${I['v_' + v]}</button>`).join('')}</div>
         <button class="icon-btn" data-act="sortFlip" aria-label="反轉順序" style="width:34px;height:34px">${I.flip}</button>
@@ -507,9 +507,9 @@ function openSortMenu() {
   const st = state.tab, cur = sortOf(st);
   $('#sheet').innerHTML = `<div class="grab"></div><h2 style="margin:0 0 8px">排序方式</h2>
     <div class="list">${Object.entries(sortsFor(st)).map(([k, o]) => {
-      const on = cur.key === k, desc = on ? cur.desc : o.def;
+      const on = cur.key === k;
       return `<button class="li sort-opt ${on ? 'on' : ''}" data-sort="${k}">
-        <div class="grow"><div class="name">${o.label(st)}</div><div class="muted small">${o.dirs[desc ? 1 : 0]}</div></div>
+        <div class="grow"><div class="name">${o.label(st)}</div></div>
         ${on ? `<span class="sort-check">${I.check}</span>` : ''}</button>`;
     }).join('')}</div>`;
   showSheet();
@@ -578,7 +578,7 @@ function renderArtists(app) {
   app.innerHTML = `
     <header class="top"><div><h1>歌手</h1>${list.length ? `<div class="sub">${list.length} 位歌手</div>` : ''}</div>${gearBtn()}</header>
     ${list.length ? `<div class="row-between" style="margin-bottom:6px">
-      <button class="sort-btn" data-act="sortMenu">${I.sort}<span>${sdef.label()}</span><span class="muted">${sdef.dirs[so.desc ? 1 : 0]}</span></button>
+      <button class="sort-btn" data-act="sortMenu">${I.sort}<span>${sdef.label()}</span></button>
       <button class="icon-btn" data-act="sortFlip" aria-label="反轉順序" style="width:34px;height:34px">${I.flip}</button>
     </div>` : ''}
     ${list.length ? `<div class="list">${list.map(x => {
