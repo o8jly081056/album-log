@@ -364,13 +364,11 @@ function renderSearch(app) {
   app.innerHTML = `
     <header class="top"><h1>探索</h1>${gearBtn()}</header>
     <form class="search" id="sform">${I.search}<input id="q" type="search" enterkeyhint="search" placeholder="歌手、專輯、EP…" value="${esc(state.q)}" autocomplete="off"></form>
-    <div class="row-between" style="margin-bottom:12px">
-      <div class="chips" style="margin:0;padding:0">
-        <button class="chip ${state.mode === 'album' ? 'on' : ''}" data-mode="album">專輯 / EP</button>
-        <button class="chip ${state.mode === 'artist' ? 'on' : ''}" data-mode="artist">歌手</button>
-        ${r ? '<button class="chip" data-act="clear">✕ 清除</button>' : ''}
-      </div>
-      <label class="toggle"><input type="checkbox" id="singles" ${db.settings.showSingles ? 'checked' : ''}>單曲</label>
+    <div class="chips" style="margin-bottom:12px">
+      <button class="chip ${state.mode === 'album' ? 'on' : ''}" data-mode="album">專輯</button>
+      <button class="chip ${state.mode === 'artist' ? 'on' : ''}" data-mode="artist">歌手</button>
+      <button class="chip ${db.settings.showSingles ? 'on' : ''}" data-act="singles" aria-pressed="${!!db.settings.showSingles}">單曲</button>
+      ${r ? '<button class="chip" data-act="clear">✕ 清除</button>' : ''}
     </div>
     ${body}`;
   $('#sform').onsubmit = e => { e.preventDefault(); $('#q').blur(); doSearch($('#q').value.trim()); };
@@ -378,7 +376,7 @@ function renderSearch(app) {
 }
 
 function homeHTML() {
-  if (!CFG.SPOTIFY_CLIENT_ID) return `<div class="empty"><b>找一張你聽過的唱片</b>輸入歌手或專輯名稱<br>點 ＋ 標記「已聽過」，點 🔖 加入「想聽」</div>`;
+  if (!CFG.SPOTIFY_CLIENT_ID) return `<div class="empty"><b>找一張你聽過的唱片</b>輸入歌手或專輯名稱<br>點 ✓ 標記「已聽過」，點 🔖 加入「想聽」</div>`;
   if (!spOn()) return `<div class="panel" style="text-align:center;margin-top:8px">
       <b>連結 Spotify</b><div class="muted small" style="margin:4px 0 12px">看到最近播放的專輯，一鍵手動標記</div>
       <button class="btn primary" data-act="spLogin">連結 Spotify</button></div>
@@ -388,7 +386,7 @@ function homeHTML() {
   const recent = s.recent === undefined ? '<div class="spinner sm"></div>'
     : s.recent.length ? `<div class="hscroll">${filterTypes(s.recent).map(albumCard).join('')}</div>` : '<div class="muted small">沒有最近播放紀錄</div>';
   return `${s.err ? `<div class="panel err">${esc(s.err)}</div>` : ''}
-    ${sec('最近播放的專輯', recent, '<button class="btn sm" data-act="spRefresh">重新整理</button>')}`;
+    ${sec('最近播放的專輯', recent)}`;
 }
 
 let spLoading = false;
@@ -442,7 +440,7 @@ function renderLib(app) {
     ${!list.length ? '<div class="empty">沒有符合的唱片</div>'
       : view === 'list' ? `<div class="alist">${list.map((a, i) => albumRow(a, i + 1)).join('')}</div>`
       : `<div class="grid ${view === 'small' ? 'small' : ''}">${list.map((a, i) => albumCard(a, i + 1)).join('')}</div>`}`
-    : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「探索」找專輯，點 ${isH ? '＋ 標記已聽過' : '🔖 加入想聽'}</div>`}`;
+    : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「探索」找專輯，點 ${isH ? '✓ 標記已聽過' : '🔖 加入想聽'}</div>`}`;
   const lq = $('#lq'); if (lq) lq.oninput = e => { state.libQ = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#lq'); n.focus(); n.setSelectionRange(pos, pos); };
 }
 
@@ -624,7 +622,7 @@ function renderSheet() {
     <div class="meta">${typeLabel(a.type)}${a.year ? ' · ' + a.year : ''}${(tracks?.length || a.tracks) ? ' · ' + (tracks?.length || a.tracks) + ' 首' : ''}${totalMs ? ' · ' + fmtTotal(totalMs) : tracks === undefined && !a.manual ? ' · <span class="muted">計算時長…</span>' : ''}</div>
     <div class="two">
       <button class="big-btn ${st === 'want' ? 'want' : ''}" data-want="${esc(k)}">${st === 'want' ? I.markOn : I.mark} 想聽</button>
-      <button class="big-btn ${st === 'heard' ? 'heard' : 'solid'}" data-heard="${esc(k)}">${I.check} ${st === 'heard' ? '已聽過' : '標記已聽過'}</button>
+      <button class="big-btn ${st === 'heard' ? 'heard' : 'solid'}" data-heard="${esc(k)}">${I.check} 已聽過</button>
     </div>
     ${st === 'heard' ? `
       <div class="stars">${[1, 2, 3, 4, 5].map(n => `<button class="${(a.rating || 0) >= n ? 'on' : ''}" data-star="${n}" aria-label="${n} 星">★</button>`).join('')}</div>
@@ -770,14 +768,14 @@ document.addEventListener('click', async e => {
     case 'import': return $('#importFile').click();
     case 'spLogin': return spotifyLogin();
     case 'spLogout': spotifyLogout(); toast('已中斷 Spotify'); return openMenu();
-    case 'spRefresh': state.sp.recent = undefined; render(); return loadSpotifyHome(true);
+    case 'singles': db.settings.showSingles = !db.settings.showSingles; save(); return render();
     case 'syncNow': await syncNow(true); return openMenu();
     case 'logout': await sb.auth.signOut(); sbUser = null; toast('已登出（本機資料保留）'); return openMenu();
     case 'loginReset': state.login = {}; return openMenu();
   }
 });
-document.addEventListener('change', e => { if (e.target.id === 'singles') { db.settings.showSingles = e.target.checked; save(); render(); } });
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { syncNow(); if (state.tab === 'search' && !state.results) loadSpotifyHome(); } });
+// 每次切回 App：同步資料，並重新抓 Spotify 最近播放
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { syncNow(); if (spOn()) loadSpotifyHome(true); } });
 $('#scrim').onclick = () => closeSheet();
 (() => { // 下滑關閉：拖曳時 1:1 跟手，放開時依距離或速度決定收回或彈回
   const s = $('#sheet'), scrim = $('#scrim');
