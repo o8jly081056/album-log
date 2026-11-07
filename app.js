@@ -1,6 +1,6 @@
 /* SHeard · 唱片書籤 v2
  * 資料：本機 localStorage 為主，登入後與 Supabase 雙向同步（新的修改勝出）
- * 目錄：iTunes Search API（免金鑰）；Spotify 只用來看「正在播放／最近播放／收藏」，一律手動標記
+ * 目錄：iTunes Search API（免金鑰）；Spotify 只用來看「正在播放／最近播放」，一律手動標記
  */
 const CFG = window.HEARD_CONFIG || {};
 const $ = s => document.querySelector(s);
@@ -148,7 +148,7 @@ async function resolveArtistId(name) {
 
 /* ================= Spotify（PKCE，免後端） ================= */
 const SP_KEY = 'heard.spotify';
-const SP_SCOPES = 'user-read-currently-playing user-read-recently-played user-library-read';
+const SP_SCOPES = 'user-read-currently-playing user-read-recently-played';
 let spTok = (() => { try { return JSON.parse(localStorage.getItem(SP_KEY)); } catch (e) { return null; } })();
 const spOn = () => !!(CFG.SPOTIFY_CLIENT_ID && spTok?.refresh);
 const spRedirect = () => location.origin + location.pathname.replace(/index\.html$/, '');
@@ -213,10 +213,6 @@ async function spRecent() {
   const m = new Map();
   (j?.items || []).forEach(it => { const a = fromSpotify(it.track.album); const k = albumKey(a); if (!m.has(k)) m.set(k, a); });
   return remember([...m.values()]);
-}
-async function spSaved(offset = 0) {
-  const j = await sp(`/me/albums?limit=20&offset=${offset}`);
-  return { list: remember((j?.items || []).map(x => fromSpotify(x.album))), next: j?.next ? offset + 20 : null, total: j?.total || 0 };
 }
 
 /* ================= 雲端同步（Supabase） ================= */
@@ -384,19 +380,15 @@ function renderSearch(app) {
 function homeHTML() {
   if (!CFG.SPOTIFY_CLIENT_ID) return `<div class="empty"><b>找一張你聽過的唱片</b>輸入歌手或專輯名稱<br>點 ＋ 標記「已聽過」，點 🔖 加入「想聽」</div>`;
   if (!spOn()) return `<div class="panel" style="text-align:center;margin-top:8px">
-      <b>連結 Spotify</b><div class="muted small" style="margin:4px 0 12px">看到最近播放和收藏的專輯，一鍵手動標記</div>
+      <b>連結 Spotify</b><div class="muted small" style="margin:4px 0 12px">看到最近播放的專輯，一鍵手動標記</div>
       <button class="btn primary" data-act="spLogin">連結 Spotify</button></div>
     <div class="empty small">也可以直接在上面搜尋任何專輯</div>`;
   const s = state.sp;
   const sec = (title, inner, extra = '') => `<div class="section-h"><span>${title}</span>${extra}</div>${inner}`;
   const recent = s.recent === undefined ? '<div class="spinner sm"></div>'
     : s.recent.length ? `<div class="hscroll">${filterTypes(s.recent).map(albumCard).join('')}</div>` : '<div class="muted small">沒有最近播放紀錄</div>';
-  const saved = s.saved === undefined ? '<div class="spinner sm"></div>'
-    : s.saved.length ? `<div class="grid">${s.saved.map(albumCard).join('')}</div>${s.savedNext != null ? '<div style="text-align:center;margin-top:14px"><button class="btn sm" data-act="spMore">載入更多</button></div>' : ''}` : '<div class="muted small">你在 Spotify 沒有收藏專輯</div>';
-  const unheard = s.saved ? s.saved.filter(a => statusOf(albumKey(a)) !== 'heard').length : 0;
   return `${s.err ? `<div class="panel err">${esc(s.err)}</div>` : ''}
-    ${sec('最近播放的專輯', recent, '<button class="btn sm" data-act="spRefresh">重新整理</button>')}
-    ${sec(`你在 Spotify 收藏的專輯${s.savedTotal ? ` · ${s.savedTotal}` : ''}`, saved, s.saved ? `<span class="small">${unheard} 張還沒標記</span>` : '')}`;
+    ${sec('最近播放的專輯', recent, '<button class="btn sm" data-act="spRefresh">重新整理</button>')}`;
 }
 
 let spLoading = false;
@@ -406,12 +398,11 @@ async function loadSpotifyHome(force) {
   if (!force && s.loadedAt && Date.now() - s.loadedAt < 60000) return;
   spLoading = true; s.loadedAt = Date.now(); s.err = '';
   const tasks = [
-    spRecent().then(v => s.recent = v),
-    (s.saved && !force) ? null : spSaved(0).then(v => { s.saved = v.list; s.savedNext = v.next; s.savedTotal = v.total; })
-  ].filter(Boolean);
+    spRecent().then(v => s.recent = v)
+  ];
   const res = await Promise.allSettled(tasks);
   const fail = res.find(x => x.status === 'rejected');
-  if (fail) { s.err = fail.reason.message; s.recent ??= []; s.saved ??= []; }
+  if (fail) { s.err = fail.reason.message; s.recent ??= []; }
   spLoading = false;
   if (state.tab === 'search' && !state.view && !state.results && !state.current) render();
 }
@@ -780,11 +771,6 @@ document.addEventListener('click', async e => {
     case 'spLogin': return spotifyLogin();
     case 'spLogout': spotifyLogout(); toast('已中斷 Spotify'); return openMenu();
     case 'spRefresh': state.sp.recent = undefined; render(); return loadSpotifyHome(true);
-    case 'spMore': {
-      t.disabled = true; t.textContent = '載入中…';
-      try { const v = await spSaved(state.sp.savedNext); state.sp.saved.push(...v.list); state.sp.savedNext = v.next; } catch (err) { toast(err.message); }
-      return render();
-    }
     case 'syncNow': await syncNow(true); return openMenu();
     case 'logout': await sb.auth.signOut(); sbUser = null; toast('已登出（本機資料保留）'); return openMenu();
     case 'loginReset': state.login = {}; return openMenu();
