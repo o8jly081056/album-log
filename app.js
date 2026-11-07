@@ -380,7 +380,7 @@ function albumRow(a, no) {
 const VIEWS = [['grid', '大圖示'], ['small', '小圖示'], ['list', '列表']];
 function viewOf(st) { db.settings.view ??= {}; return db.settings.view[st] || 'grid'; }
 
-/* ---------- 探索（搜尋＋Spotify） ---------- */
+/* ---------- 首頁（搜尋＋最近播放） ---------- */
 function renderSearch(app) {
   const r = state.results;
   let body;
@@ -400,9 +400,8 @@ function renderSearch(app) {
     }).join('')}</div>` : '<div class="empty">找不到歌手</div>';
   }
   app.innerHTML = `
-    <header class="top"><h1>探索</h1>${gearBtn()}</header>
+    <header class="top"><h1>首頁</h1>${gearBtn()}</header>
     <form class="search" id="sform">${I.search}<input id="q" type="search" enterkeyhint="search" placeholder="歌手、專輯、EP…" value="${esc(state.q)}" autocomplete="off"></form>
-    ${chipBar('search', [['artist', '歌手'], ...RELEASES], state.sf, 'margin-bottom:12px')}
     ${body}`;
   $('#sform').onsubmit = e => { e.preventDefault(); $('#q').blur(); doSearch($('#q').value.trim()); };
   $('#q').addEventListener('search', e => { if (!e.target.value && state.results) { state.results = null; state.q = ''; render(); } });
@@ -473,7 +472,7 @@ function renderLib(app) {
     ${!list.length ? '<div class="empty">沒有符合的唱片</div>'
       : view === 'list' ? `<div class="alist">${list.map((a, i) => albumRow(a, list.length - i)).join('')}</div>`
       : `<div class="grid ${view === 'small' ? 'small' : ''}">${list.map((a, i) => albumCard(a, list.length - i)).join('')}</div>`}`
-    : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「探索」找專輯，點 <span class="inline-ic">${isH ? I.check : I.mark}</span> ${isH ? '標記已聽過' : '加入想聽'}</div>`}
+    : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「首頁」找專輯，點 <span class="inline-ic">${isH ? I.check : I.mark}</span> ${isH ? '標記已聽過' : '加入想聽'}</div>`}
     ${isH && archiveCount() ? `<button class="archive-link" data-act="archive">${I.archive}已封存 ${archiveCount()} 張 ›</button>` : ''}`;
   const lq = $('#lq'); if (lq) lq.oninput = e => { state.libQ = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#lq'); n.focus(); n.setSelectionRange(pos, pos); };
 }
