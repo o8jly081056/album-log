@@ -20,7 +20,7 @@ const albumKey = a => `${norm(a.artist)}|${norm(a.title)}`;
 const db = load();
 function load() {
   try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && d.albums) return Object.assign({ deleted: {}, dirty: {} }, d); } catch (e) {}
-  const d = { albums: {}, deleted: {}, dirty: {}, settings: { showSingles: false } };
+  const d = { albums: {}, deleted: {}, dirty: {}, settings: {} };
   // 從 v1 搬資料過來
   try {
     const old = JSON.parse(localStorage.getItem('heard.v1'));
@@ -44,7 +44,7 @@ function fromSpotify(al) {
     id: 'sp:' + al.id, spotifyId: al.id, title: al.name,
     artist: (al.artists || []).map(a => a.name).join(' & '), artistId: al.artists?.[0]?.id || '',
     date: al.release_date || '',
-    type: t === 'single' ? ((al.total_tracks || 0) >= 4 ? 'EP' : 'Single') : 'Album',
+    type: t === 'single' ? ((al.total_tracks || 0) >= 4 ? 'EP' : 'Single') : t === 'compilation' ? 'Compilation' : 'Album',
     year: (al.release_date || '').slice(0, 4), tracks: al.total_tracks || 0,
     cover: al.images?.[0]?.url || ''
   };
@@ -132,11 +132,11 @@ async function searchArtists(q) {
   const m = new Map(); pages.flatMap(p => p?.artists?.items || []).filter(Boolean).forEach(x => m.set(x.id, x));
   return [...m.values()];
 }
-async function artistAlbums(id) {
+async function artistAlbums(id, groups = 'album,single,compilation') {
   let lim = 50, out = [];
   for (let off = 0; off < 300; off += lim) {
     let j;
-    try { j = await spCached(`/artists/${id}/albums?include_groups=album,single&market=from_token&limit=${lim}&offset=${off}`); }
+    try { j = await spCached(`/artists/${id}/albums?include_groups=${groups}&market=from_token&limit=${lim}&offset=${off}`); }
     catch (e) { if (lim === 50 && off === 0 && /400/.test(e.message)) { lim = 10; off = -lim; continue; } throw e; }
     out.push(...(j?.items || []).filter(Boolean));
     if (!j?.next) break;
@@ -295,13 +295,22 @@ function updateDot() {
 /* ================= 狀態 ================= */
 const state = {
   tab: 'search', view: null, q: '', mode: 'album', results: null, loading: false,
-  libFilter: 'all', libQ: '', current: null, sp: {}, syncErr: '', login: {}
+  libFilter: null, sf: null, resKind: null, libQ: '', current: null, sp: {}, syncErr: '', login: {}
 };
 const seen = new Map();
 function remember(list) { list.forEach(a => { const k = albumKey(a); const old = seen.get(k); seen.set(k, old ? { ...old, ...a, _tracks: old._tracks } : a); }); return list; }
 const findAlbum = k => db.albums[k] || seen.get(k);
-const filterTypes = list => db.settings.showSingles ? list : list.filter(a => a.type !== 'Single');
-const typeLabel = t => ({ Album: '專輯', EP: 'EP', Single: '單曲' })[t] || t;
+const typeLabel = t => ({ Album: '專輯', EP: 'EP', Single: '單曲', Compilation: '合輯' })[t] || t;
+// 跟 Spotify 一樣的發行類型分組
+const RELEASES = [['Album', '專輯'], ['SingleEP', '單曲和迷你專輯'], ['Compilation', '合輯']];
+const inGroup = (a, g) => !g ? true : g === 'Album' ? a.type === 'Album' : g === 'SingleEP' ? (a.type === 'Single' || a.type === 'EP') : g === 'Compilation' ? a.type === 'Compilation' : true;
+// Spotify 式單選標籤：選了一個就只留「✕＋已選的」，再點一次或按 ✕ 取消回到全部
+function chipBar(scope, opts, sel, style = '') {
+  const on = opts.find(([v]) => v === sel);
+  return `<div class="chips" style="${style}">${on
+    ? `<button class="chip x" data-f="${scope}" data-v="" aria-label="清除篩選">✕</button><button class="chip on" data-f="${scope}" data-v="">${on[1]}</button>`
+    : opts.map(([v, l]) => `<button class="chip" data-f="${scope}" data-v="${v}">${l}</button>`).join('')}</div>`;
+}
 
 const I = {
   check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 9.5 17.5 19.5 6.5"/></svg>',
@@ -371,8 +380,8 @@ function renderSearch(app) {
   let body;
   if (state.loading) body = '<div class="spinner"></div>';
   else if (!r) body = homeHTML();
-  else if (state.mode === 'album') {
-    const list = remember(filterTypes(r));
+  else if (state.resKind === 'album') {
+    const list = remember(r.filter(a => inGroup(a, state.sf)));
     body = list.length ? `<div class="grid">${list.map(a => albumCard(a)).join('')}</div>` : '<div class="empty">找不到結果</div>';
   } else {
     body = r.length ? `<div class="list">${r.map(x => {
@@ -387,14 +396,11 @@ function renderSearch(app) {
   app.innerHTML = `
     <header class="top"><h1>探索</h1>${gearBtn()}</header>
     <form class="search" id="sform">${I.search}<input id="q" type="search" enterkeyhint="search" placeholder="歌手、專輯、EP…" value="${esc(state.q)}" autocomplete="off"></form>
-    <div class="chips" style="margin-bottom:12px">
-      <button class="chip ${state.mode === 'album' ? 'on' : ''}" data-mode="album">專輯</button>
-      <button class="chip ${state.mode === 'artist' ? 'on' : ''}" data-mode="artist">歌手</button>
-      <button class="chip ${db.settings.showSingles ? 'on' : ''}" data-act="singles" aria-pressed="${!!db.settings.showSingles}">單曲</button>
-      ${r ? '<button class="chip" data-act="clear">✕ 清除</button>' : ''}
-    </div>
+    ${chipBar('search', [['artist', '歌手'], ...RELEASES], state.sf, 'margin-bottom:12px')}
     ${body}`;
   $('#sform').onsubmit = e => { e.preventDefault(); $('#q').blur(); doSearch($('#q').value.trim()); };
+  $('#q').addEventListener('search', e => { if (!e.target.value && state.results) { state.results = null; state.q = ''; render(); } });
+  $('#q').addEventListener('input', e => { if (!e.target.value && state.results) { state.results = null; state.q = ''; render(); $('#q').focus(); } });
   if (!r && !state.loading && spOn()) loadSpotifyHome();
 }
 
@@ -405,7 +411,7 @@ function homeHTML() {
   const s = state.sp;
   const sec = (title, inner, extra = '') => `<div class="section-h"><span>${title}</span>${extra}</div>${inner}`;
   const recent = s.recent === undefined ? '<div class="spinner sm"></div>'
-    : s.recent.length ? `<div class="hscroll">${filterTypes(s.recent).map(a => albumCard(a)).join('')}</div>` : '<div class="muted small">沒有最近播放紀錄</div>';
+    : s.recent.filter(a => inGroup(a, state.sf)).length ? `<div class="grid">${s.recent.filter(a => inGroup(a, state.sf)).map(a => albumCard(a)).join('')}</div>` : '<div class="muted small">沒有最近播放紀錄</div>';
   return `${s.err ? `<div class="panel err">${esc(s.err)}</div>` : ''}
     ${sec('最近播放的專輯', recent)}`;
 }
@@ -429,8 +435,9 @@ async function doSearch(q) {
   if (!q) return;
   if (!spOn()) return toast('請先連結 Spotify');
   state.q = q; state.loading = true; render();
-  try { state.results = state.mode === 'album' ? await searchAlbums(q) : await searchArtists(q); }
-  catch (e) { state.results = []; toast(e.message || '連線失敗，請稍後再試'); }
+  const kind = state.sf === 'artist' ? 'artist' : 'album';
+  try { state.results = kind === 'album' ? await searchAlbums(q) : await searchArtists(q); state.resKind = kind; }
+  catch (e) { state.results = []; state.resKind = kind; toast(e.message || '連線失敗，請稍後再試'); }
   state.loading = false; render();
 }
 
@@ -439,7 +446,7 @@ function renderLib(app) {
   const status = state.tab;
   let list = Object.values(db.albums).filter(a => a.status === status);
   const total = list.length, artists = new Set(list.map(a => norm(a.artist))).size;
-  if (state.libFilter !== 'all') list = list.filter(a => a.type === state.libFilter);
+  if (state.libFilter) list = list.filter(a => inGroup(a, state.libFilter));
   if (state.libQ) { const q = state.libQ.toLowerCase(); list = list.filter(a => (a.title + ' ' + a.artist).toLowerCase().includes(q)); }
   const so = sortOf(status), sdef = SORTS[so.key];
   list.sort((a, b) => { const r = sdef.cmp(a, b, status) || timeOf(a, status) - timeOf(b, status); return so.desc ? -r : r; });
@@ -449,9 +456,7 @@ function renderLib(app) {
   app.innerHTML = `
     <header class="top"><div><h1>${isH ? '已聽過' : '想聽'}</h1><div class="sub">${total} 張唱片 · ${artists} 位歌手${list.length !== total ? ` · 目前顯示 ${list.length} 張` : ''}</div></div>${gearBtn()}</header>
     ${total ? `<div class="search">${I.search}<input id="lq" type="search" placeholder="在${isH ? '已聽過' : '想聽'}裡搜尋" value="${esc(state.libQ)}"></div>
-    <div class="chips">
-      ${[['all', '全部'], ['Album', '專輯'], ['EP', 'EP'], ['Single', '單曲']].map(([k, l]) => `<button class="chip ${state.libFilter === k ? 'on' : ''}" data-lf="${k}">${l}</button>`).join('')}
-    </div>
+    ${chipBar('lib', RELEASES, state.libFilter)}
     <div class="row-between" style="margin-bottom:12px">
       <button class="sort-btn" data-act="sortMenu">${I.sort}<span>${sdef.label(status)}</span><span class="muted">${sdef.dirs[so.desc ? 1 : 0]}</span></button>
       <div style="display:flex;gap:8px;align-items:center">
@@ -542,10 +547,17 @@ async function renderArtist(app) {
     } catch (e) { v.albums = []; toast(e.message || '載入失敗'); }
     if (state.view !== v) return;
   }
+  if (v.filter === 'appears' && !v.appears && spOn() && isSpId(v.id)) {
+    v.appears = 'loading';
+    artistAlbums(v.id, 'appears_on').then(x => { v.appears = x; }).catch(e => { v.appears = []; toast(e.message); }).then(() => { if (state.view === v) render(); });
+  }
   const keys = new Set(v.albums.map(albumKey));
-  const all = remember([...v.albums, ...local.filter(a => !keys.has(albumKey(a)))]);
-  const groups = [['Album', '專輯'], ['EP', 'EP'], ...(db.settings.showSingles ? [['Single', '單曲']] : [])];
-  const counted = all.filter(a => db.settings.showSingles || a.type !== 'Single');
+  const own = remember([...v.albums, ...local.filter(a => !keys.has(albumKey(a)))]);
+  const appears = Array.isArray(v.appears) ? remember(v.appears) : [];
+  const ARTIST_OPTS = [...RELEASES, ['appears', '參與的專輯']];
+  const all = v.filter === 'appears' ? appears : own.filter(a => inGroup(a, v.filter));
+  const groups = v.filter ? [[v.filter, ARTIST_OPTS.find(o => o[0] === v.filter)[1]]] : RELEASES;
+  const counted = all;
   const heard = counted.filter(a => statusOf(albumKey(a)) === 'heard').length;
   const want = counted.filter(a => statusOf(albumKey(a)) === 'want').length;
   const pct = counted.length ? Math.round(heard / counted.length * 100) : 0;
@@ -558,13 +570,15 @@ async function renderArtist(app) {
         <div class="bar"><i style="width:${pct}%"></i></div>
       </div>
     </div>
+    ${chipBar('artist', ARTIST_OPTS, v.filter || null, 'margin-bottom:4px')}
+    ${v.filter === 'appears' && v.appears === 'loading' ? '<div class="spinner"></div>' : ''}
     ${groups.map(([t, l]) => {
-      const g = all.filter(a => a.type === t);
+      const g = t === 'appears' ? all : all.filter(a => inGroup(a, t));
       if (!g.length) return '';
       const h = g.filter(a => statusOf(albumKey(a)) === 'heard').length;
       return `<div class="section-h"><span>${l} · ${h}/${g.length}</span></div><div class="grid">${g.map(a => albumCard(a)).join('')}</div>`;
     }).join('')}
-    ${!all.length ? '<div class="empty">找不到這位歌手的作品</div>' : '<div class="empty small">資料來自 Spotify。EP 依 Spotify 的單曲／專輯分類與曲數判斷，可能不完全準確</div>'}`;
+    ${!all.length && v.appears !== 'loading' ? '<div class="empty">這個分類沒有作品</div>' : '<div class="empty small">資料來自 Spotify。EP 依 Spotify 的單曲／專輯分類與曲數判斷，可能不完全準確</div>'}`;
 }
 
 /* ================= 專輯詳情 ================= */
@@ -764,7 +778,7 @@ $('#importFile').onchange = async e => {
 
 /* ================= 事件 ================= */
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-heard],[data-want],[data-open],[data-name],[data-tab],[data-mode],[data-lf],[data-sort],[data-view],[data-star],[data-act]');
+  const t = e.target.closest('[data-heard],[data-want],[data-open],[data-name],[data-tab],[data-f],[data-sort],[data-view],[data-star],[data-act]');
   if (!t) return;
   const d = t.dataset;
   if (d.heard !== undefined) { e.stopPropagation(); return toggle(d.heard, 'heard'); }
@@ -775,12 +789,21 @@ document.addEventListener('click', async e => {
     state.view = { type: 'artist', id: d.artist || '', name: d.name }; window.scrollTo(0, 0); return render();
   }
   if (d.tab) {
-    if (d.tab !== state.tab) { state.libFilter = 'all'; state.libQ = ''; }
+    if (d.tab !== state.tab) { state.libFilter = null; state.libQ = ''; }
     else if (d.tab === 'search' && !state.view) { state.results = null; state.q = ''; }
     state.tab = d.tab; state.view = null; window.scrollTo(0, 0); return render();
   }
-  if (d.mode) { state.mode = d.mode; state.results = null; render(); if (state.q) doSearch(state.q); return; }
-  if (d.lf) { state.libFilter = d.lf; return render(); }
+  if (d.f) {
+    const v = d.v || null;
+    if (d.f === 'lib') state.libFilter = v;
+    else if (d.f === 'artist') { state.view.filter = v; }
+    else if (d.f === 'search') {
+      state.sf = v;
+      const need = v === 'artist' ? 'artist' : 'album';
+      if (state.results && state.resKind !== need && state.q) { render(); return doSearch(state.q); }
+    }
+    return render();
+  }
   if (d.view) { db.settings.view ??= {}; db.settings.view[state.tab] = d.view; save(); return render(); }
   if (d.sort) { setSort(state.tab, d.sort); hideSheet(); window.scrollTo(0, 0); return render(); }
   if (d.star) { const a = db.albums[state.current]; a.rating = a.rating == +d.star ? 0 : +d.star; touch(state.current); return renderSheet(); }
@@ -795,7 +818,6 @@ document.addEventListener('click', async e => {
     case 'import': return $('#importFile').click();
     case 'spLogin': return spotifyLogin();
     case 'spLogout': spotifyLogout(); toast('已中斷 Spotify'); return openMenu();
-    case 'singles': db.settings.showSingles = !db.settings.showSingles; save(); return render();
     case 'syncNow': await syncNow(true); return openMenu();
     case 'logout': await sb.auth.signOut(); sbUser = null; toast('已登出（本機資料保留）'); return openMenu();
     case 'loginReset': state.login = {}; return openMenu();
