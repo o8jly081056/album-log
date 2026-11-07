@@ -630,7 +630,6 @@ function renderSheet() {
     ${st ? `<div class="field"><label>筆記</label><textarea id="note" rows="3" placeholder="${st === 'heard' ? '喜歡哪幾首？什麼時候聽的？' : '誰推薦的？為什麼想聽？'}">${esc(a.note || '')}</textarea></div>` : ''}
     <div class="btn-row">
       <a class="btn primary" href="${spotify}" target="_blank" rel="noopener">在 Spotify 開啟</a>
-      ${a.appleUrl ? `<a class="btn" href="${esc(a.appleUrl)}" target="_blank" rel="noopener">Apple Music</a>` : ''}
     </div>
     ${tracks?.length ? `<div class="tracks">${tracks.map(t => `<div><span>${t.n}</span><b style="flex:1;font-weight:400">${esc(t.name)}</b><em class="muted small" style="font-style:normal">${fmt(t.ms)}</em></div>`).join('')}</div>` : ''}
   </div>`;
