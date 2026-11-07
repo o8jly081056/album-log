@@ -476,8 +476,8 @@ const timeOf = (a, st) => (st === 'heard' ? a.heardAt : a.addedAt) || a.addedAt 
 // 每個排序：cmp 是「遞增」比較；dirs[0] 是遞增的說法、dirs[1] 是遞減；def 為預設是否遞減
 const SORTS = {
   time:   { label: st => st === 'heard' ? '聽過時間' : '加入時間', dirs: ['舊 → 新', '新 → 舊'], def: true,  cmp: (a, b, st) => timeOf(a, st) - timeOf(b, st) },
-  title:  { label: () => '專輯名稱（筆畫）', dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.title, b.title) },
-  artist: { label: () => '歌手（筆畫）',     dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.artist, b.artist) || (a.year || '').localeCompare(b.year || '') }
+  title:  { label: () => '專輯名稱', dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.title, b.title) },
+  artist: { label: () => '歌手',     dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.artist, b.artist) || (a.year || '').localeCompare(b.year || '') }
 };
 function sortOf(st) {
   db.settings.sort ??= {};
