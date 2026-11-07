@@ -430,7 +430,6 @@ function renderLib(app) {
   const so = sortOf(status), sdef = SORTS[so.key];
   list.sort((a, b) => { const r = sdef.cmp(a, b, status) || timeOf(a, status) - timeOf(b, status); return so.desc ? -r : r; });
   remember(list);
-  const nums = numbering(status);
   const isH = status === 'heard';
   app.innerHTML = `
     <header class="top"><div><h1>${isH ? '已聽過' : '想聽'}</h1><div class="sub">${total} 張唱片 · ${artists} 位歌手${list.length !== total ? ` · 目前顯示 ${list.length} 張` : ''}</div></div>${gearBtn()}</header>
@@ -442,7 +441,7 @@ function renderLib(app) {
       <button class="sort-btn" data-act="sortMenu">${I.sort}<span>${sdef.label(status)}</span><span class="muted">${sdef.dirs[so.desc ? 1 : 0]}</span></button>
       <button class="icon-btn" data-act="sortFlip" aria-label="反轉順序" style="width:34px;height:34px">${I.flip}</button>
     </div>
-    ${list.length ? `<div class="grid">${list.map(a => albumCard(a, nums.get(albumKey(a)))).join('')}</div>` : '<div class="empty">沒有符合的唱片</div>'}`
+    ${list.length ? `<div class="grid">${list.map((a, i) => albumCard(a, i + 1)).join('')}</div>` : '<div class="empty">沒有符合的唱片</div>'}`
     : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「探索」找專輯，點 ${isH ? '＋ 標記已聽過' : '🔖 加入想聽'}</div>`}`;
   const lq = $('#lq'); if (lq) lq.oninput = e => { state.libQ = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#lq'); n.focus(); n.setSelectionRange(pos, pos); };
 }
@@ -470,14 +469,6 @@ function setSort(st, key) {
   const cur = sortOf(st);
   db.settings.sort[st] = cur.key === key ? { key, desc: !cur.desc } : { key, desc: SORTS[key].def };
   save();
-}
-// 編號：依標記時間由舊到新，第一張是 #1，不受排序或篩選影響
-function numbering(st) {
-  const m = new Map();
-  Object.values(db.albums).filter(a => a.status === st)
-    .sort((a, b) => timeOf(a, st) - timeOf(b, st) || colStroke.compare(a.title, b.title))
-    .forEach((a, i) => m.set(albumKey(a), i + 1));
-  return m;
 }
 function openSortMenu() {
   state.current = null;
