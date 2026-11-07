@@ -1,6 +1,6 @@
 /* SHeard · 唱片書籤 v2
  * 資料：本機 localStorage 為主，登入後與 Supabase 雙向同步（新的修改勝出）
- * 目錄：iTunes Search API（免金鑰）；Spotify 只用來看「正在播放／最近播放」，一律手動標記
+ * 資料來源：全部取自 Spotify（搜尋、歌手作品、曲目、最近播放），一律手動標記
  */
 const CFG = window.HEARD_CONFIG || {};
 const $ = s => document.querySelector(s);
@@ -14,13 +14,13 @@ const KEY = 'heard.v2';
 const norm = s => (s || '').toLowerCase()
   .replace(/\s*[\(\[](deluxe|remaster|explicit|clean|expanded|anniversary|bonus|special)[^\)\]]*[\)\]]/g, '')
   .replace(/[^\p{L}\p{N}]+/gu, '').trim();
-// 用「歌手名＋專輯名」當作唯一鍵，讓 Apple Music / Spotify / 手動新增的同一張專輯對得起來
+// 用「歌手名＋專輯名」當作唯一鍵，讓 Spotify、手動新增、以及舊版資料的同一張專輯對得起來
 const albumKey = a => `${norm(a.artist)}|${norm(a.title)}`;
 
 const db = load();
 function load() {
   try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && d.albums) return Object.assign({ deleted: {}, dirty: {} }, d); } catch (e) {}
-  const d = { albums: {}, deleted: {}, dirty: {}, settings: { showSingles: false, country: 'TW' } };
+  const d = { albums: {}, deleted: {}, dirty: {}, settings: { showSingles: false } };
   // 從 v1 搬資料過來
   try {
     const old = JSON.parse(localStorage.getItem('heard.v1'));
@@ -38,24 +38,12 @@ function load() {
 function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast('儲存失敗'); } }
 const statusOf = k => db.albums[k]?.status || null;
 
-function fromItunes(r) {
-  let title = r.collectionName || '', type = 'Album';
-  if (/ - EP$/i.test(title)) { type = 'EP'; title = title.replace(/ - EP$/i, ''); }
-  else if (/ - Single$/i.test(title)) { type = 'Single'; title = title.replace(/ - Single$/i, ''); }
-  else if ((r.trackCount || 0) <= 3) type = 'Single';
-  else if ((r.trackCount || 0) <= 6) type = 'EP';
-  return {
-    id: String(r.collectionId), title, type, artist: r.artistName,
-    artistId: r.artistId ? String(r.artistId) : '',
-    year: r.releaseDate ? r.releaseDate.slice(0, 4) : '', tracks: r.trackCount || 0,
-    cover: (r.artworkUrl100 || '').replace('100x100bb', '600x600bb'), appleUrl: r.collectionViewUrl || ''
-  };
-}
 function fromSpotify(al) {
   const t = al.album_type;
   return {
     id: 'sp:' + al.id, spotifyId: al.id, title: al.name,
-    artist: (al.artists || []).map(a => a.name).join(' & '), artistId: '',
+    artist: (al.artists || []).map(a => a.name).join(' & '), artistId: al.artists?.[0]?.id || '',
+    date: al.release_date || '',
     type: t === 'single' ? ((al.total_tracks || 0) >= 4 ? 'EP' : 'Single') : 'Album',
     year: (al.release_date || '').slice(0, 4), tracks: al.total_tracks || 0,
     cover: al.images?.[0]?.url || ''
@@ -122,28 +110,62 @@ async function toggle(k, status) {
 }
 function touch(k) { db.albums[k].updatedAt = Date.now(); db.dirty[k] = 1; save(); scheduleSync(); }
 
-/* ================= iTunes API ================= */
+/* ================= Spotify 目錄（搜尋／歌手作品／曲目） ================= */
 const cache = new Map();
-async function api(path) {
-  const ck = path + db.settings.country;
-  if (cache.has(ck)) return cache.get(ck);
-  const res = await fetch(`https://itunes.apple.com/${path}&country=${db.settings.country || 'TW'}`);
-  if (!res.ok) throw new Error(res.status);
-  const r = (await res.json()).results || [];
-  cache.set(ck, r); return r;
+async function spCached(path) {
+  if (cache.has(path)) return cache.get(path);
+  const j = await sp(path); cache.set(path, j); return j;
 }
-const searchAlbums = q => api(`search?term=${encodeURIComponent(q)}&entity=album&limit=60`).then(r => r.filter(x => x.wrapperType === 'collection').map(fromItunes));
-const searchArtists = q => api(`search?term=${encodeURIComponent(q)}&entity=musicArtist&limit=25`);
+const isSpId = id => /^[0-9A-Za-z]{22}$/.test(id || '');
+const dedupe = list => { const m = new Map(); list.forEach(a => { const k = albumKey(a); if (!m.has(k)) m.set(k, a); }); return [...m.values()]; };
+// 開發模式每次最多 10 筆，一次抓 3 頁（30 筆）
+async function searchAlbums(q) {
+  const enc = encodeURIComponent(q);
+  const pages = await Promise.all([0, 10, 20].map(o => spCached(`/search?type=album&limit=10&offset=${o}&market=from_token&q=${enc}`).catch(() => null)));
+  if (pages.every(p => !p)) throw new Error('搜尋失敗');
+  return dedupe(pages.flatMap(p => p?.albums?.items || []).filter(Boolean).map(fromSpotify));
+}
+async function searchArtists(q) {
+  const enc = encodeURIComponent(q);
+  const pages = await Promise.all([0, 10].map(o => spCached(`/search?type=artist&limit=10&offset=${o}&q=${enc}`).catch(() => null)));
+  if (pages.every(p => !p)) throw new Error('搜尋失敗');
+  const m = new Map(); pages.flatMap(p => p?.artists?.items || []).filter(Boolean).forEach(x => m.set(x.id, x));
+  return [...m.values()];
+}
 async function artistAlbums(id) {
-  const r = await api(`lookup?id=${id}&entity=album&limit=200`);
-  const m = new Map();
-  r.filter(x => x.wrapperType === 'collection').map(fromItunes).forEach(a => { const k = albumKey(a); if (!m.has(k)) m.set(k, a); });
-  return [...m.values()].sort((a, b) => (b.year || '').localeCompare(a.year || ''));
+  let lim = 50, out = [];
+  for (let off = 0; off < 300; off += lim) {
+    let j;
+    try { j = await spCached(`/artists/${id}/albums?include_groups=album,single&market=from_token&limit=${lim}&offset=${off}`); }
+    catch (e) { if (lim === 50 && off === 0 && /400/.test(e.message)) { lim = 10; off = -lim; continue; } throw e; }
+    out.push(...(j?.items || []).filter(Boolean));
+    if (!j?.next) break;
+  }
+  return dedupe(out.map(fromSpotify)).sort((a, b) => (b.date || b.year || '').localeCompare(a.date || a.year || ''));
 }
 async function resolveArtistId(name) {
-  const r = await searchArtists(name);
-  const hit = r.find(x => norm(x.artistName) === norm(name)) || r.find(x => norm(name).startsWith(norm(x.artistName)));
-  return hit ? String(hit.artistId) : '';
+  const j = await spCached(`/search?type=artist&limit=10&q=${encodeURIComponent(name)}`);
+  const r = j?.artists?.items || [];
+  const hit = r.find(x => norm(x.name) === norm(name)) || r.find(x => norm(name).startsWith(norm(x.name)));
+  return hit?.id || '';
+}
+// 舊資料（沒有 Spotify id）→ 找出對應的 Spotify 專輯
+async function resolveAlbum(a) {
+  const q = encodeURIComponent(`album:${a.title} artist:${a.artist.split(' & ')[0]}`);
+  const j = await spCached(`/search?type=album&limit=10&market=from_token&q=${q}`);
+  const k = albumKey(a);
+  const hit = (j?.albums?.items || []).filter(Boolean).map(fromSpotify).find(x => albumKey(x) === k);
+  return hit || null;
+}
+async function albumTracks(spotifyId) {
+  const j = await spCached('/albums/' + spotifyId);
+  const items = [...(j?.tracks?.items || [])];
+  let next = j?.tracks?.next;
+  while (next && items.length < 300) {
+    const p = await spCached(next.replace('https://api.spotify.com/v1', ''));
+    items.push(...(p?.items || [])); next = p?.next;
+  }
+  return items.map(x => ({ n: x.track_number, name: x.name, ms: x.duration_ms }));
 }
 
 /* ================= Spotify（PKCE，免後端） ================= */
@@ -351,13 +373,14 @@ function renderSearch(app) {
   else if (!r) body = homeHTML();
   else if (state.mode === 'album') {
     const list = remember(filterTypes(r));
-    body = list.length ? `<div class="grid">${list.map(albumCard).join('')}</div>` : '<div class="empty">找不到結果</div>';
+    body = list.length ? `<div class="grid">${list.map(a => albumCard(a)).join('')}</div>` : '<div class="empty">找不到結果</div>';
   } else {
     body = r.length ? `<div class="list">${r.map(x => {
-      const n = Object.values(db.albums).filter(a => a.status === 'heard' && norm(a.artist) === norm(x.artistName)).length;
-      return `<button class="li" data-artist="${x.artistId}" data-name="${esc(x.artistName)}">
-        <div class="av">${esc(x.artistName[0])}</div>
-        <div class="grow"><div class="name">${esc(x.artistName)}</div><div class="muted small">${esc(x.primaryGenreName || '')}${n ? ` · 已聽 ${n} 張` : ''}</div></div>
+      const n = Object.values(db.albums).filter(a => a.status === 'heard' && norm(a.artist) === norm(x.name)).length;
+      const img = x.images?.[x.images.length - 1]?.url || x.images?.[0]?.url;
+      return `<button class="li" data-artist="${esc(x.id)}" data-name="${esc(x.name)}">
+        <div class="av">${img ? `<img loading="lazy" src="${esc(img)}" alt="">` : esc(x.name[0])}</div>
+        <div class="grow"><div class="name">${esc(x.name)}</div><div class="muted small">${esc((x.genres || []).slice(0, 2).join('、'))}${n ? `${x.genres?.length ? ' · ' : ''}已聽 ${n} 張` : ''}</div></div>
       </button>`;
     }).join('')}</div>` : '<div class="empty">找不到歌手</div>';
   }
@@ -376,15 +399,13 @@ function renderSearch(app) {
 }
 
 function homeHTML() {
-  if (!CFG.SPOTIFY_CLIENT_ID) return `<div class="empty"><b>找一張你聽過的唱片</b>輸入歌手或專輯名稱<br>點 ✓ 標記「已聽過」，點 🔖 加入「想聽」</div>`;
   if (!spOn()) return `<div class="panel" style="text-align:center;margin-top:8px">
-      <b>連結 Spotify</b><div class="muted small" style="margin:4px 0 12px">看到最近播放的專輯，一鍵手動標記</div>
-      <button class="btn primary" data-act="spLogin">連結 Spotify</button></div>
-    <div class="empty small">也可以直接在上面搜尋任何專輯</div>`;
+      <b>連結 Spotify</b><div class="muted small" style="margin:4px 0 12px">搜尋、歌手作品和最近播放都來自 Spotify，連結後才能使用</div>
+      <button class="btn primary" data-act="spLogin">連結 Spotify</button></div>`;
   const s = state.sp;
   const sec = (title, inner, extra = '') => `<div class="section-h"><span>${title}</span>${extra}</div>${inner}`;
   const recent = s.recent === undefined ? '<div class="spinner sm"></div>'
-    : s.recent.length ? `<div class="hscroll">${filterTypes(s.recent).map(albumCard).join('')}</div>` : '<div class="muted small">沒有最近播放紀錄</div>';
+    : s.recent.length ? `<div class="hscroll">${filterTypes(s.recent).map(a => albumCard(a)).join('')}</div>` : '<div class="muted small">沒有最近播放紀錄</div>';
   return `${s.err ? `<div class="panel err">${esc(s.err)}</div>` : ''}
     ${sec('最近播放的專輯', recent)}`;
 }
@@ -406,9 +427,10 @@ async function loadSpotifyHome(force) {
 }
 async function doSearch(q) {
   if (!q) return;
+  if (!spOn()) return toast('請先連結 Spotify');
   state.q = q; state.loading = true; render();
   try { state.results = state.mode === 'album' ? await searchAlbums(q) : await searchArtists(q); }
-  catch (e) { state.results = []; toast('連線失敗，請稍後再試'); }
+  catch (e) { state.results = []; toast(e.message || '連線失敗，請稍後再試'); }
   state.loading = false; render();
 }
 
@@ -512,9 +534,12 @@ async function renderArtist(app) {
   if (!v.albums) {
     app.innerHTML = `${head}<h2 style="margin:4px 0">${esc(v.name)}</h2><div class="spinner"></div>`;
     try {
-      if (!v.id) v.id = await resolveArtistId(v.name);
-      v.albums = v.id ? await artistAlbums(v.id) : [];
-    } catch (e) { v.albums = []; toast('載入失敗'); }
+      if (!spOn()) v.albums = [];
+      else {
+        if (!isSpId(v.id)) v.id = await resolveArtistId(v.name);
+        v.albums = v.id ? await artistAlbums(v.id) : [];
+      }
+    } catch (e) { v.albums = []; toast(e.message || '載入失敗'); }
     if (state.view !== v) return;
   }
   const keys = new Set(v.albums.map(albumKey));
@@ -537,9 +562,9 @@ async function renderArtist(app) {
       const g = all.filter(a => a.type === t);
       if (!g.length) return '';
       const h = g.filter(a => statusOf(albumKey(a)) === 'heard').length;
-      return `<div class="section-h"><span>${l} · ${h}/${g.length}</span></div><div class="grid">${g.map(albumCard).join('')}</div>`;
+      return `<div class="section-h"><span>${l} · ${h}/${g.length}</span></div><div class="grid">${g.map(a => albumCard(a)).join('')}</div>`;
     }).join('')}
-    ${!all.length ? '<div class="empty">找不到這位歌手的作品</div>' : '<div class="empty small">專輯 / EP 分類依 Apple Music 資料自動判斷，可能不完全準確</div>'}`;
+    ${!all.length ? '<div class="empty">找不到這位歌手的作品</div>' : '<div class="empty small">資料來自 Spotify。EP 依 Spotify 的單曲／專輯分類與曲數判斷，可能不完全準確</div>'}`;
 }
 
 /* ================= 專輯詳情 ================= */
@@ -578,12 +603,17 @@ async function loadTracks(k) {
   const a = findAlbum(k); if (!a || a._tracks || a.manual) return;
   try {
     let t = [];
-    if (a.spotifyId && spOn()) {
-      const j = await sp('/albums/' + a.spotifyId);
-      t = (j?.tracks?.items || []).map(x => ({ n: x.track_number, name: x.name, ms: x.duration_ms }));
-    } else if (/^\d+$/.test(a.id)) {
-      const r = await api(`lookup?id=${a.id}&entity=song`);
-      t = r.filter(x => x.wrapperType === 'track').map(x => ({ n: x.trackNumber, name: x.trackName, ms: x.trackTimeMillis }));
+    if (spOn()) {
+      if (!a.spotifyId) {           // 舊資料：補上 Spotify 的 id、封面與資訊
+        const hit = await resolveAlbum(a);
+        if (hit) {
+          const upd = { spotifyId: hit.spotifyId, cover: hit.cover, artistId: hit.artistId, date: hit.date, year: hit.year || a.year, tracks: hit.tracks || a.tracks, type: hit.type };
+          Object.assign(a, upd);
+          const sv = seen.get(k); if (sv && sv !== a) Object.assign(sv, upd);
+          if (db.albums[k]) { delete db.albums[k].appleUrl; touch(k); }
+        }
+      }
+      if (a.spotifyId) t = await albumTracks(a.spotifyId);
     }
     const s = seen.get(k); if (s) s._tracks = t; else seen.set(k, { ...a, _tracks: t });
     if (state.current === k) afterSheetOpen(() => { if (state.current === k) renderSheet(); });
@@ -667,10 +697,8 @@ function openMenu() {
       <button class="li" data-act="export"><div class="grow"><div class="name">匯出備份</div><div class="muted small">下載 JSON 檔</div></div></button>
       <button class="li" data-act="import"><div class="grow"><div class="name">匯入備份</div><div class="muted small">合併到目前的資料</div></div></button>
     </div>
-    <div class="field"><label>搜尋地區（影響可搜到的唱片）</label>
-      <select id="country">${[['TW', '台灣'], ['US', '美國'], ['JP', '日本'], ['KR', '韓國'], ['HK', '香港'], ['GB', '英國']].map(([c, l]) => `<option value="${c}" ${db.settings.country === c ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
+`;
   showSheet();
-  $('#country').onchange = e => { db.settings.country = e.target.value; cache.clear(); save(); toast('已切換地區'); };
   const lf = $('#loginForm'); if (lf) lf.onsubmit = async e => {
     e.preventDefault(); L.err = '';
     const signup = e.submitter?.name === 'signup';
