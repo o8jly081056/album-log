@@ -104,7 +104,7 @@ async function toggle(k, status) {
     if (!ok) return;
   }
   if (setStatus(k, was === status ? null : status) === false) return;
-  toast(was === status ? (status === 'heard' ? '已取消「已聽過」' : '已移出想聽') : (status === 'heard' ? '✓ 已聽過' : '🔖 加入想聽'));
+  toast(was === status ? (status === 'heard' ? '已取消「已聽過」' : '已移出想聽') : (status === 'heard' ? '✓ 已聽過' : '已加入想聽'));
   if (state.current) renderSheet();
   render();
 }
@@ -467,7 +467,7 @@ function renderLib(app) {
     ${!list.length ? '<div class="empty">沒有符合的唱片</div>'
       : view === 'list' ? `<div class="alist">${list.map((a, i) => albumRow(a, i + 1)).join('')}</div>`
       : `<div class="grid ${view === 'small' ? 'small' : ''}">${list.map((a, i) => albumCard(a, i + 1)).join('')}</div>`}`
-    : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「探索」找專輯，點 ${isH ? '✓ 標記已聽過' : '🔖 加入想聽'}</div>`}`;
+    : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「探索」找專輯，點 <span class="inline-ic">${isH ? I.check : I.mark}</span> ${isH ? '標記已聽過' : '加入想聽'}</div>`}`;
   const lq = $('#lq'); if (lq) lq.oninput = e => { state.libQ = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#lq'); n.focus(); n.setSelectionRange(pos, pos); };
 }
 
