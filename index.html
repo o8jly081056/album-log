@@ -40,6 +40,14 @@ header.top .sub{color:var(--fg2);font-size:13px}
 .chip{flex:none;padding:6px 14px;border-radius:999px;background:var(--bg2);color:var(--fg2);font-size:13px}
 .chip.on{background:var(--fg);color:#111;font-weight:600}
 .chip.x{padding:6px 11px;font-weight:700}
+.text-btn{color:var(--accent);font-weight:600;font-size:15px;padding:6px 4px}
+.sw{position:relative;overflow:hidden}
+.sw-del{position:absolute;right:0;top:0;bottom:1px;width:88px;background:#e5484d;color:#fff;font-weight:700;font-size:15px}
+.sw-fg{position:relative;background:var(--bg);transition:transform .28s cubic-bezier(.32,.72,0,1);will-change:transform}
+.sw.open .sw-fg{transform:translateX(-88px)}
+.list.editing .sw.open .sw-fg{transform:none;width:calc(100% - 96px)}
+.list.editing .sw-fg>.muted{display:none}
+.list.editing .sw-del{width:88px;border-radius:10px;top:10px;bottom:10px}
 .li .pct{font-size:14px;color:var(--heard);flex:none;font-variant-numeric:tabular-nums}
 .li .bar{height:4px;margin-top:5px}
 .inline-ic{display:inline-flex;vertical-align:-3px;color:var(--fg)}
@@ -214,9 +222,9 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
 
 <nav class="tabs"><div class="in">
   <button data-tab="search"><svg class="ic-off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v10.5h4.5v-6h4v6h4.5V9"/></svg><svg class="ic-on" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.36 2.73a1 1 0 0 1 1.28 0l8.5 7a1 1 0 0 1-.64 1.77h-.5v8.25a1.25 1.25 0 0 1-1.25 1.25H14.5v-6.25h-5V21H5.25A1.25 1.25 0 0 1 4 19.75V11.5h-.5a1 1 0 0 1-.64-1.77z"/></svg>首頁</button>
+  <button data-tab="artists"><svg class="ic-off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg><svg class="ic-on" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4.6"/><path d="M3.4 21.2C4.4 16.6 8 14.4 12 14.4s7.6 2.2 8.6 6.8a.8.8 0 0 1-.8.8H4.2a.8.8 0 0 1-.8-.8z"/></svg>歌手</button>
   <button data-tab="heard"><svg class="ic-off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 9.5 17.5 19.5 6.5"/></svg><svg class="ic-on" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 9.5 17.5 19.5 6.5"/></svg>已聽過</button>
   <button data-tab="want"><svg class="ic-off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12v17l-6-4-6 4z"/></svg><svg class="ic-on" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M6 3.5h12v17l-6-4-6 4z"/></svg>想聽</button>
-  <button data-tab="artists"><svg class="ic-off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg><svg class="ic-on" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4.6"/><path d="M3.4 21.2C4.4 16.6 8 14.4 12 14.4s7.6 2.2 8.6 6.8a.8.8 0 0 1-.8.8H4.2a.8.8 0 0 1-.8-.8z"/></svg>歌手</button>
 </div></nav>
 
 <div class="scrim" id="scrim"></div>

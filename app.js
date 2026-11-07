@@ -526,6 +526,55 @@ function renderArchive(app) {
 const archiveCount = () => Object.values(db.albums).filter(a => a.status === 'archived').length;
 
 /* ---------- 歌手 ---------- */
+// 刪除歌手＝移除這位歌手所有的標記（已聽過／想聽／封存），會同步到雲端
+async function deleteArtist(name) {
+  const albums = Object.values(db.albums).filter(a => norm(a.artist) === norm(name));
+  if (!albums.length) return;
+  const n = st => albums.filter(a => a.status === st).length;
+  const parts = [['heard', '已聽過'], ['want', '想聽'], ['archived', '封存']].filter(([st]) => n(st)).map(([st, l]) => `${l} ${n(st)}`);
+  const ok = await ask({
+    title: `刪除「${name}」？`,
+    msg: `會移除這位歌手全部 ${albums.length} 張的標記（${parts.join('、')}），評分和筆記也會一起清除，無法復原。`,
+    ok: '刪除', cancel: '取消'
+  });
+  if (!ok) { closeSwipes(); return; }
+  const now = Date.now();
+  albums.forEach(a => { const k = albumKey(a); delete db.albums[k]; db.deleted[k] = now; db.dirty[k] = 1; });
+  delete artistTotals[norm(name)];
+  try { localStorage.setItem(AT_KEY, JSON.stringify(artistTotals)); } catch (e) {}
+  save(); scheduleSync();
+  if (!Object.keys(db.albums).length) state.artistEdit = false;
+  render(); toast(`已刪除「${name}」`);
+}
+function closeSwipes(except) {
+  document.querySelectorAll('.sw.open').forEach(el => { if (el !== except && !state.artistEdit) el.classList.remove('open'); });
+}
+// 左滑顯示刪除（類似 iOS）
+(() => {
+  let row = null, fg = null, x0 = 0, y0 = 0, dx = 0, mode = null, base = 0;
+  document.addEventListener('touchstart', e => {
+    const f = e.target.closest('.sw-fg'); if (!f || state.artistEdit) { row = null; return; }
+    fg = f; row = f.parentElement; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; mode = null;
+    base = row.classList.contains('open') ? -88 : 0;
+    closeSwipes(row);
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!row) return;
+    const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+    if (!mode) { if (Math.abs(mx) < 8 && Math.abs(my) < 8) return; mode = Math.abs(mx) > Math.abs(my) ? 'x' : 'y'; }
+    if (mode !== 'x') return;
+    e.preventDefault();
+    dx = Math.min(0, Math.max(-120, base + mx));
+    fg.style.transition = 'none'; fg.style.transform = `translateX(${dx}px)`;
+  }, { passive: false });
+  document.addEventListener('touchend', () => {
+    if (!row || mode !== 'x') { row = null; return; }
+    fg.style.transition = ''; fg.style.transform = '';
+    row.classList.toggle('open', dx < -44);
+    row.dataset.justSwiped = '1'; setTimeout(() => { if (row) delete row.dataset.justSwiped; }, 350);
+    row = null;
+  });
+})();
 /* 歌手完整作品數的快取（只存在這台裝置），讓歌手列表不用點進去就能看到聽過百分比 */
 const AT_KEY = 'heard.artistTotals', AT_TTL = 3 * 864e5;
 const artistTotals = (() => { try { return JSON.parse(localStorage.getItem(AT_KEY)) || {}; } catch (e) { return {}; } })();
@@ -576,21 +625,24 @@ function renderArtists(app) {
   const so = sortOf('artists'), sdef = ARTIST_SORTS[so.key];
   list.sort((a, b) => { const r = sdef.cmp(a, b) || colStroke.compare(a.name, b.name); return so.desc ? -r : r; });
   app.innerHTML = `
-    <header class="top"><div><h1>歌手</h1>${list.length ? `<div class="sub">${list.length} 位歌手</div>` : ''}</div>${gearBtn()}</header>
+    <header class="top"><div><h1>歌手</h1>${list.length ? `<div class="sub">${list.length} 位歌手</div>` : ''}</div>
+      <div style="display:flex;gap:8px;align-items:center">${list.length ? `<button class="text-btn" data-act="artistEdit">${state.artistEdit ? '完成' : '編輯'}</button>` : ''}${gearBtn()}</div></header>
     ${list.length ? `<div class="row-between" style="margin-bottom:6px">
       <button class="sort-btn" data-act="sortMenu">${I.sort}<span>${sdef.label()}</span></button>
       <button class="icon-btn" data-act="sortFlip" aria-label="反轉順序" style="width:34px;height:34px">${I.flip}</button>
     </div>` : ''}
-    ${list.length ? `<div class="list">${list.map(x => {
+    ${list.length ? `<div class="list${state.artistEdit ? ' editing' : ''}">${list.map(x => {
       const c = (x.heard[0] || x.want[0]).cover;
       const pg = x.pg;
       if (!pg || Date.now() - artistTotals[norm(x.name)].at > AT_TTL) queueArtistTotal(x.name);
-      return `<button class="li" data-artist="${x.id}" data-name="${esc(x.name)}">
+      return `<div class="sw${state.artistEdit ? ' open' : ''}">
+        <button class="sw-del" data-delartist="${esc(x.name)}">刪除</button>
+        <button class="li sw-fg" data-artist="${x.id}" data-name="${esc(x.name)}">
         <div class="av">${c ? `<img src="${esc(c)}" alt="">` : esc(x.name[0])}</div>
         <div class="grow"><div class="row-between"><div class="name">${esc(x.name)}</div>${pg ? `<b class="pct">${pg.pct}%</b>` : ''}</div>
           <div class="muted small">${pg ? `聽過 ${pg.heard} / ${pg.total} 張` : `已聽 ${x.heard.length} 張${spOn() ? ' · 計算中…' : ''}`}${x.want.length ? ` · 想聽 ${x.want.length} 張` : ''}</div>
           ${pg ? `<div class="bar"><i style="width:${pg.pct}%"></i></div>` : ''}</div>
-        <span class="muted">›</span></button>`;
+        <span class="muted">›</span></button></div>`;
     }).join('')}</div>`
     : `<div class="empty"><b>還沒有歌手</b>標記第一張專輯後，歌手會出現在這裡</div>`}`;
 }
@@ -836,6 +888,11 @@ $('#importFile').onchange = async e => {
 
 /* ================= 事件 ================= */
 document.addEventListener('click', async e => {
+  const swRow = e.target.closest('.sw');
+  if (swRow && !state.artistEdit && !e.target.closest('.sw-del') && (swRow.dataset.justSwiped || swRow.classList.contains('open'))) { swRow.classList.remove('open'); return; }
+  if (!swRow) closeSwipes();
+  const del = e.target.closest('[data-delartist]');
+  if (del) return deleteArtist(del.dataset.delartist);
   const t = e.target.closest('[data-heard],[data-want],[data-arch],[data-open],[data-name],[data-tab],[data-f],[data-sort],[data-view],[data-star],[data-act]');
   if (!t) return;
   const d = t.dataset;
@@ -848,7 +905,7 @@ document.addEventListener('click', async e => {
     state.view = { type: 'artist', id: d.artist || '', name: d.name }; window.scrollTo(0, 0); return render();
   }
   if (d.tab) {
-    if (d.tab !== state.tab) { state.libFilter = null; state.libQ = ''; }
+    if (d.tab !== state.tab) { state.libFilter = null; state.libQ = ''; state.artistEdit = false; }
     else if (d.tab === 'search' && !state.view) { state.results = null; state.q = ''; }
     state.tab = d.tab; state.view = null; window.scrollTo(0, 0); return render();
   }
@@ -870,6 +927,7 @@ document.addEventListener('click', async e => {
     case 'back': state.view = null; return render();
     case 'clear': state.results = null; state.q = ''; return render();
     case 'menu': return openMenu();
+    case 'artistEdit': state.artistEdit = !state.artistEdit; return render();
     case 'archive': hideSheet(); state.view = { type: 'archive' }; window.scrollTo(0, 0); return render();
     case 'sortMenu': return openSortMenu();
     case 'sortFlip': { const c = sortOf(state.tab); db.settings.sort[state.tab] = { key: c.key, desc: !c.desc }; save(); return render(); }
