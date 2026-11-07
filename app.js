@@ -472,17 +472,12 @@ function renderLib(app) {
 
 /* ---------- 排序 ---------- */
 const colStroke = new Intl.Collator('zh-Hant-TW-u-co-stroke', { numeric: true, sensitivity: 'base' });
-const colZhuyin = new Intl.Collator('zh-Hant-TW-u-co-zhuyin', { numeric: true, sensitivity: 'base' });
 const timeOf = (a, st) => (st === 'heard' ? a.heardAt : a.addedAt) || a.addedAt || 0;
 // 每個排序：cmp 是「遞增」比較；dirs[0] 是遞增的說法、dirs[1] 是遞減；def 為預設是否遞減
 const SORTS = {
   time:   { label: st => st === 'heard' ? '聽過時間' : '加入時間', dirs: ['舊 → 新', '新 → 舊'], def: true,  cmp: (a, b, st) => timeOf(a, st) - timeOf(b, st) },
-  title:  { label: () => '專輯名稱・筆畫', dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.title, b.title) },
-  artist: { label: () => '歌手・筆畫',     dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.artist, b.artist) || (a.year || '').localeCompare(b.year || '') },
-  titleZ: { label: () => '專輯名稱・注音', dirs: ['ㄅ → ㄦ', 'ㄦ → ㄅ'], def: false, cmp: (a, b) => colZhuyin.compare(a.title, b.title) },
-  artistZ:{ label: () => '歌手・注音',     dirs: ['ㄅ → ㄦ', 'ㄦ → ㄅ'], def: false, cmp: (a, b) => colZhuyin.compare(a.artist, b.artist) || (a.year || '').localeCompare(b.year || '') },
-  year:   { label: () => '發行年份',       dirs: ['舊 → 新', '新 → 舊'], def: true,  cmp: (a, b) => (a.year || '').localeCompare(b.year || '') },
-  rating: { label: () => '評分',           dirs: ['低 → 高', '高 → 低'], def: true,  cmp: (a, b) => (a.rating || 0) - (b.rating || 0), only: 'heard' }
+  title:  { label: () => '專輯名稱（筆畫）', dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.title, b.title) },
+  artist: { label: () => '歌手（筆畫）',     dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.artist, b.artist) || (a.year || '').localeCompare(b.year || '') }
 };
 function sortOf(st) {
   db.settings.sort ??= {};
