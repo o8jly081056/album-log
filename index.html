@@ -142,8 +142,41 @@ img,svg{max-width:100%}
 input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-height:44px;text-align:left}
 input[type=date]::-webkit-date-and-time-value{text-align:left}
 .li .name,.card .t,.card .a{min-width:0}
+.seg{display:inline-flex;background:var(--bg2);border-radius:999px;padding:3px;gap:2px}
+.seg button{width:32px;height:28px;border-radius:999px;display:grid;place-items:center;color:var(--fg3)}
+.seg button.on{background:var(--bg3);color:var(--fg)}
+/* 小圖示：一排 3～4 張，只留封面與名稱 */
+.grid.small{grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.grid.small .card .t{font-size:12.5px;margin-top:5px}
+.grid.small .card .a{font-size:11.5px}
+.grid.small .card .a .lbl-w{display:none}
+.grid.small .mini{width:26px;height:26px;border-width:1.5px}
+.grid.small .mini svg{width:13px;height:13px}
+.grid.small .acts{right:4px;bottom:4px;gap:4px}
+.grid.small .badge{left:5px;top:5px;padding:2px 5px;font-size:10px}
+.grid.small .no{margin-right:4px}
+@media (max-width:380px){.grid.small{grid-template-columns:repeat(3,1fr);gap:8px}}
+/* 列表 */
+.alist{display:flex;flex-direction:column}
+.arow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;min-width:0}
+.arow-no{width:24px;flex:none;text-align:right;color:var(--fg3);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.arow-cover{width:52px;height:52px;border-radius:6px;overflow:hidden;background:var(--bg3);flex:none;position:relative}
+.arow-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.arow-main{flex:1;min-width:0}
+.arow-t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow-a{color:var(--fg2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow-m{color:var(--fg3);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-stars{color:var(--star);margin-left:6px;letter-spacing:1px}
+.arow-acts{display:flex;gap:6px;flex:none}
+.arow .mini{background:transparent;border-color:var(--line)}
+.arow .mini.heard{background:var(--heard);border-color:var(--heard)}
+.arow .mini.want{background:var(--want);border-color:var(--want)}
 .sort-btn{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:999px;background:var(--bg2);font-size:13px;font-weight:600}
 .sort-btn .muted{font-weight:400}
+.sort-btn{min-width:0;flex:0 1 auto;overflow:hidden;white-space:nowrap}
+.sort-btn span{overflow:hidden;text-overflow:ellipsis}
+.sort-btn svg{flex:none}
+@media (max-width:400px){.sort-btn .muted{display:none}.sort-btn{padding:0 12px}.seg button{width:30px}}
 .sort-opt.on .name{color:var(--accent)}
 .sort-check{color:var(--accent)}
 .card .no{color:var(--fg3);font-weight:700;margin-right:6px;font-variant-numeric:tabular-nums}

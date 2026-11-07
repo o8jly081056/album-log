@@ -294,6 +294,9 @@ const I = {
   gear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
   sort: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
   flip: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>',
+  v_grid: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>',
+  v_small: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="9.5" y="3" width="5" height="5" rx="1"/><rect x="16" y="3" width="5" height="5" rx="1"/><rect x="3" y="9.5" width="5" height="5" rx="1"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><rect x="16" y="9.5" width="5" height="5" rx="1"/><rect x="3" y="16" width="5" height="5" rx="1"/><rect x="9.5" y="16" width="5" height="5" rx="1"/><rect x="16" y="16" width="5" height="5" rx="1"/></svg>',
+  v_list: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="5" height="5" rx="1"/><rect x="3" y="15" width="5" height="5" rx="1"/><path d="M11 5.5h10M11 8h6M11 16.5h10M11 19h6"/></svg>',
   back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 5-7 7 7 7"/></svg>'
 };
 const gearBtn = () => `<button class="icon-btn" data-act="menu" aria-label="設定">${I.gear}${syncOn() ? `<span id="syncDot" class="dot ${syncing ? 'busy' : (sbUser && !state.syncErr ? '' : 'off')}"></span>` : ''}</button>`;
@@ -318,9 +321,31 @@ function albumCard(a, no) {
       </div>
     </div>
     <div class="t">${no ? `<span class="no">#${no}</span>` : ''}${esc(a.title)}</div>
-    <div class="a">${s === 'heard' ? '<span class="lbl heard">✓ 已聽過</span> · ' : s === 'want' ? '<span class="lbl want">想聽</span> · ' : ''}${esc(a.artist)}${a.year ? ' · ' + a.year : ''}</div>
+    <div class="a">${s === 'heard' ? '<span class="lbl-w"><span class="lbl heard">✓ 已聽過</span> · </span>' : s === 'want' ? '<span class="lbl-w"><span class="lbl want">想聽</span> · </span>' : ''}${esc(a.artist)}${a.year ? ' · ' + a.year : ''}</div>
   </div>`;
 }
+
+/* 列表式的一列 */
+function albumRow(a, no) {
+  const k = albumKey(a), s = statusOf(k);
+  const stars = s === 'heard' && a.rating ? `<span class="row-stars">${'★'.repeat(a.rating)}</span>` : '';
+  const when = s === 'heard' && a.heardAt ? new Date(a.heardAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' }) : '';
+  return `<div class="arow" data-open="${esc(k)}">
+    <span class="arow-no">${no}</span>
+    <div class="arow-cover">${a.cover ? `<img loading="lazy" src="${esc(a.cover)}" alt="">` : '<div class="ph" style="font-size:20px">♪</div>'}</div>
+    <div class="arow-main">
+      <div class="arow-t">${esc(a.title)}</div>
+      <div class="arow-a">${esc(a.artist)}</div>
+      <div class="arow-m">${typeLabel(a.type)}${a.year ? ' · ' + a.year : ''}${when ? ' · 聽於 ' + when : ''}${stars}</div>
+    </div>
+    <div class="arow-acts">
+      ${s !== 'heard' ? `<button class="mini ${s === 'want' ? 'want' : ''}" data-want="${esc(k)}" aria-label="想聽">${s === 'want' ? I.markOn : I.mark}</button>` : ''}
+      <button class="mini ${s === 'heard' ? 'heard' : ''}" data-heard="${esc(k)}" aria-label="已聽過">${s === 'heard' ? I.check : I.plus}</button>
+    </div>
+  </div>`;
+}
+const VIEWS = [['grid', '大圖示'], ['small', '小圖示'], ['list', '列表']];
+function viewOf(st) { db.settings.view ??= {}; return db.settings.view[st] || 'grid'; }
 
 /* ---------- 探索（搜尋＋Spotify） ---------- */
 function renderSearch(app) {
@@ -431,6 +456,7 @@ function renderLib(app) {
   list.sort((a, b) => { const r = sdef.cmp(a, b, status) || timeOf(a, status) - timeOf(b, status); return so.desc ? -r : r; });
   remember(list);
   const isH = status === 'heard';
+  const view = viewOf(status);
   app.innerHTML = `
     <header class="top"><div><h1>${isH ? '已聽過' : '想聽'}</h1><div class="sub">${total} 張唱片 · ${artists} 位歌手${list.length !== total ? ` · 目前顯示 ${list.length} 張` : ''}</div></div>${gearBtn()}</header>
     ${total ? `<div class="search">${I.search}<input id="lq" type="search" placeholder="在${isH ? '已聽過' : '想聽'}裡搜尋" value="${esc(state.libQ)}"></div>
@@ -439,9 +465,14 @@ function renderLib(app) {
     </div>
     <div class="row-between" style="margin-bottom:12px">
       <button class="sort-btn" data-act="sortMenu">${I.sort}<span>${sdef.label(status)}</span><span class="muted">${sdef.dirs[so.desc ? 1 : 0]}</span></button>
-      <button class="icon-btn" data-act="sortFlip" aria-label="反轉順序" style="width:34px;height:34px">${I.flip}</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="seg" role="group" aria-label="檢視方式">${VIEWS.map(([v, l]) => `<button class="${view === v ? 'on' : ''}" data-view="${v}" aria-label="${l}" title="${l}">${I['v_' + v]}</button>`).join('')}</div>
+        <button class="icon-btn" data-act="sortFlip" aria-label="反轉順序" style="width:34px;height:34px">${I.flip}</button>
+      </div>
     </div>
-    ${list.length ? `<div class="grid">${list.map((a, i) => albumCard(a, i + 1)).join('')}</div>` : '<div class="empty">沒有符合的唱片</div>'}`
+    ${!list.length ? '<div class="empty">沒有符合的唱片</div>'
+      : view === 'list' ? `<div class="alist">${list.map((a, i) => albumRow(a, i + 1)).join('')}</div>`
+      : `<div class="grid ${view === 'small' ? 'small' : ''}">${list.map((a, i) => albumCard(a, i + 1)).join('')}</div>`}`
     : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「探索」找專輯，點 ${isH ? '＋ 標記已聽過' : '🔖 加入想聽'}</div>`}`;
   const lq = $('#lq'); if (lq) lq.oninput = e => { state.libQ = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#lq'); n.focus(); n.setSelectionRange(pos, pos); };
 }
@@ -707,7 +738,7 @@ $('#importFile').onchange = async e => {
 
 /* ================= 事件 ================= */
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-heard],[data-want],[data-open],[data-name],[data-tab],[data-mode],[data-lf],[data-sort],[data-star],[data-act]');
+  const t = e.target.closest('[data-heard],[data-want],[data-open],[data-name],[data-tab],[data-mode],[data-lf],[data-sort],[data-view],[data-star],[data-act]');
   if (!t) return;
   const d = t.dataset;
   if (d.heard !== undefined) { e.stopPropagation(); return toggle(d.heard, 'heard'); }
@@ -724,6 +755,7 @@ document.addEventListener('click', async e => {
   }
   if (d.mode) { state.mode = d.mode; state.results = null; render(); if (state.q) doSearch(state.q); return; }
   if (d.lf) { state.libFilter = d.lf; return render(); }
+  if (d.view) { db.settings.view ??= {}; db.settings.view[state.tab] = d.view; save(); return render(); }
   if (d.sort) { setSort(state.tab, d.sort); hideSheet(); window.scrollTo(0, 0); return render(); }
   if (d.star) { const a = db.albums[state.current]; a.rating = a.rating == +d.star ? 0 : +d.star; touch(state.current); return renderSheet(); }
   switch (d.act) {
