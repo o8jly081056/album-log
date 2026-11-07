@@ -356,14 +356,13 @@ function albumCard(a, no) {
 function albumRow(a, no) {
   const k = albumKey(a), s = statusOf(k);
   const stars = s === 'heard' && a.rating ? `<span class="row-stars">${'★'.repeat(a.rating)}</span>` : '';
-  const when = s === 'heard' && a.heardAt ? new Date(a.heardAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' }) : '';
   return `<div class="arow" data-open="${esc(k)}">
     <span class="arow-no">${no}</span>
     <div class="arow-cover">${a.cover ? `<img loading="lazy" src="${esc(a.cover)}" alt="">` : '<div class="ph" style="font-size:20px">♪</div>'}</div>
     <div class="arow-main">
       <div class="arow-t">${esc(a.title)}</div>
       <div class="arow-a">${esc(a.artist)}</div>
-      <div class="arow-m">${typeLabel(a.type)}${a.year ? ' · ' + a.year : ''}${when ? ' · 聽於 ' + when : ''}${stars}</div>
+      <div class="arow-m">${typeLabel(a.type)}${a.year ? ' · ' + a.year : ''}${stars}</div>
     </div>
     <div class="arow-acts">
       ${s !== 'heard' ? `<button class="mini ${s === 'want' ? 'want' : ''}" data-want="${esc(k)}" aria-label="想聽">${s === 'want' ? I.markOn : I.mark}</button>` : ''}
@@ -465,8 +464,8 @@ function renderLib(app) {
       </div>
     </div>
     ${!list.length ? '<div class="empty">沒有符合的唱片</div>'
-      : view === 'list' ? `<div class="alist">${list.map((a, i) => albumRow(a, i + 1)).join('')}</div>`
-      : `<div class="grid ${view === 'small' ? 'small' : ''}">${list.map((a, i) => albumCard(a, i + 1)).join('')}</div>`}`
+      : view === 'list' ? `<div class="alist">${list.map((a, i) => albumRow(a, list.length - i)).join('')}</div>`
+      : `<div class="grid ${view === 'small' ? 'small' : ''}">${list.map((a, i) => albumCard(a, list.length - i)).join('')}</div>`}`
     : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「探索」找專輯，點 <span class="inline-ic">${isH ? I.check : I.mark}</span> ${isH ? '標記已聽過' : '加入想聽'}</div>`}`;
   const lq = $('#lq'); if (lq) lq.oninput = e => { state.libQ = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#lq'); n.focus(); n.setSelectionRange(pos, pos); };
 }
@@ -510,6 +509,43 @@ function openSortMenu() {
 }
 
 /* ---------- 歌手 ---------- */
+/* 歌手完整作品數的快取（只存在這台裝置），讓歌手列表不用點進去就能看到聽過百分比 */
+const AT_KEY = 'heard.artistTotals', AT_TTL = 3 * 864e5;
+const artistTotals = (() => { try { return JSON.parse(localStorage.getItem(AT_KEY)) || {}; } catch (e) { return {}; } })();
+function setArtistTotal(name, id, albums) {
+  artistTotals[norm(name)] = { id, keys: albums.map(albumKey), at: Date.now() };
+  try { localStorage.setItem(AT_KEY, JSON.stringify(artistTotals)); } catch (e) {}
+}
+function artistProgress(name) {
+  const c = artistTotals[norm(name)]; if (!c) return null;
+  const local = Object.values(db.albums).filter(a => norm(a.artist) === norm(name));
+  const all = new Set([...c.keys, ...local.map(albumKey)]);
+  const heard = local.filter(a => a.status === 'heard').length;
+  return { heard, total: all.size, pct: all.size ? Math.round(heard / all.size * 100) : 0 };
+}
+const atQueue = new Set(); let atRunning = 0, atRenderT = null;
+function queueArtistTotal(name, id) {
+  const c = artistTotals[norm(name)];
+  if (!spOn() || atQueue.has(name) || (c && Date.now() - c.at < AT_TTL)) return;
+  atQueue.add(name); pumpArtistTotals(id);
+}
+async function pumpArtistTotals() {
+  while (atRunning < 2 && atQueue.size) {
+    const name = atQueue.values().next().value; atQueue.delete(name); atRunning++;
+    (async () => {
+      try {
+        const local = Object.values(db.albums).find(a => norm(a.artist) === norm(name) && isSpId(a.artistId));
+        const id = local?.artistId || await resolveArtistId(name);
+        if (id) setArtistTotal(name, id, await artistAlbums(id));
+      } catch (e) {}
+      atRunning--;
+      clearTimeout(atRenderT);
+      atRenderT = setTimeout(() => { if (state.tab === 'artists' && !state.view && !state.current) render(); }, 400);
+      pumpArtistTotals();
+    })();
+  }
+}
+
 function renderArtists(app) {
   const map = new Map();
   Object.values(db.albums).forEach(a => {
@@ -523,10 +559,13 @@ function renderArtists(app) {
     <header class="top"><div><h1>歌手</h1><div class="sub">點進去看完整作品，哪些聽過一目了然</div></div>${gearBtn()}</header>
     ${list.length ? `<div class="list">${list.map(x => {
       const c = (x.heard[0] || x.want[0]).cover;
+      const pg = artistProgress(x.name);
+      if (!pg || Date.now() - artistTotals[norm(x.name)].at > AT_TTL) queueArtistTotal(x.name);
       return `<button class="li" data-artist="${x.id}" data-name="${esc(x.name)}">
         <div class="av">${c ? `<img src="${esc(c)}" alt="">` : esc(x.name[0])}</div>
-        <div class="grow"><div class="name">${esc(x.name)}</div>
-          <div class="muted small">已聽 ${x.heard.length} 張${x.want.length ? ` · 想聽 ${x.want.length} 張` : ''}</div></div>
+        <div class="grow"><div class="row-between"><div class="name">${esc(x.name)}</div>${pg ? `<b class="pct">${pg.pct}%</b>` : ''}</div>
+          <div class="muted small">${pg ? `聽過 ${pg.heard} / ${pg.total} 張` : `已聽 ${x.heard.length} 張${spOn() ? ' · 計算中…' : ''}`}${x.want.length ? ` · 想聽 ${x.want.length} 張` : ''}</div>
+          ${pg ? `<div class="bar"><i style="width:${pg.pct}%"></i></div>` : ''}</div>
         <span class="muted">›</span></button>`;
     }).join('')}</div>`
     : `<div class="empty"><b>還沒有歌手</b>標記第一張專輯後，歌手會出現在這裡</div>`}`;
@@ -547,6 +586,7 @@ async function renderArtist(app) {
     } catch (e) { v.albums = []; toast(e.message || '載入失敗'); }
     if (state.view !== v) return;
   }
+  if (v.albums.length && !v.cached) { setArtistTotal(v.name, v.id, v.albums); v.cached = true; }
   const keys = new Set(v.albums.map(albumKey));
   const own = remember([...v.albums, ...local.filter(a => !keys.has(albumKey(a)))]);
   const ARTIST_OPTS = RELEASES;
@@ -663,8 +703,7 @@ function renderSheet() {
       <button class="big-btn ${st === 'heard' ? 'heard' : 'solid'}" data-heard="${esc(k)}">${I.check} 已聽過</button>
     </div>
     ${st === 'heard' ? `
-      <div class="stars">${[1, 2, 3, 4, 5].map(n => `<button class="${(a.rating || 0) >= n ? 'on' : ''}" data-star="${n}" aria-label="${n} 星">★</button>`).join('')}</div>
-      <div class="field"><label>聽過日期</label><input type="date" id="heardDate" value="${new Date(a.heardAt || Date.now()).toISOString().slice(0, 10)}"></div>` : ''}
+      <div class="stars">${[1, 2, 3, 4, 5].map(n => `<button class="${(a.rating || 0) >= n ? 'on' : ''}" data-star="${n}" aria-label="${n} 星">★</button>`).join('')}</div>` : ''}
     ${st ? `<div class="field"><label>筆記</label><textarea id="note" rows="3" placeholder="${st === 'heard' ? '喜歡哪幾首？什麼時候聽的？' : '誰推薦的？為什麼想聽？'}">${esc(a.note || '')}</textarea></div>` : ''}
     <div class="btn-row">
       <a class="btn primary" href="${spotify}" target="_blank" rel="noopener">在 Spotify 開啟</a>
@@ -672,7 +711,6 @@ function renderSheet() {
     ${tracks?.length ? `<div class="tracks">${tracks.map(t => `<div><span>${t.n}</span><b style="flex:1;font-weight:400">${esc(t.name)}</b><em class="muted small" style="font-style:normal">${fmt(t.ms)}</em></div>`).join('')}</div>` : ''}
   </div>`;
   const note = $('#note'); if (note) note.onchange = e => { db.albums[k].note = e.target.value; touch(k); toast('已儲存筆記'); };
-  const d = $('#heardDate'); if (d) d.onchange = e => { db.albums[k].heardAt = new Date(e.target.value).getTime() || Date.now(); touch(k); };
 }
 
 /* ================= 設定選單 ================= */
