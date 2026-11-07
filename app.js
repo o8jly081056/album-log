@@ -277,7 +277,7 @@ function updateDot() {
 /* ================= 狀態 ================= */
 const state = {
   tab: 'search', view: null, q: '', mode: 'album', results: null, loading: false,
-  libFilter: 'all', libSort: 'recent', libQ: '', current: null, sp: {}, syncErr: '', login: {}
+  libFilter: 'all', libQ: '', current: null, sp: {}, syncErr: '', login: {}
 };
 const seen = new Map();
 function remember(list) { list.forEach(a => { const k = albumKey(a); const old = seen.get(k); seen.set(k, old ? { ...old, ...a, _tracks: old._tracks } : a); }); return list; }
@@ -292,6 +292,8 @@ const I = {
   markOn: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
   search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
   gear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  sort: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
+  flip: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>',
   back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 5-7 7 7 7"/></svg>'
 };
 const gearBtn = () => `<button class="icon-btn" data-act="menu" aria-label="設定">${I.gear}${syncOn() ? `<span id="syncDot" class="dot ${syncing ? 'busy' : (sbUser && !state.syncErr ? '' : 'off')}"></span>` : ''}</button>`;
@@ -304,7 +306,7 @@ function render() {
   ({ search: renderSearch, heard: renderLib, want: renderLib, artists: renderArtists })[state.tab](app);
 }
 
-function albumCard(a) {
+function albumCard(a, no) {
   const k = albumKey(a), s = statusOf(k);
   return `<div class="card" data-open="${esc(k)}">
     <div class="cover">
@@ -315,7 +317,7 @@ function albumCard(a) {
         <button class="mini ${s === 'heard' ? 'heard' : ''}" data-heard="${esc(k)}" aria-label="已聽過">${s === 'heard' ? I.check : I.plus}</button>
       </div>
     </div>
-    <div class="t">${esc(a.title)}</div>
+    <div class="t">${no ? `<span class="no">#${no}</span>` : ''}${esc(a.title)}</div>
     <div class="a">${s === 'heard' ? '<span class="lbl heard">✓ 已聽過</span> · ' : s === 'want' ? '<span class="lbl want">想聽</span> · ' : ''}${esc(a.artist)}${a.year ? ' · ' + a.year : ''}</div>
   </div>`;
 }
@@ -425,26 +427,70 @@ function renderLib(app) {
   const total = list.length, artists = new Set(list.map(a => norm(a.artist))).size;
   if (state.libFilter !== 'all') list = list.filter(a => a.type === state.libFilter);
   if (state.libQ) { const q = state.libQ.toLowerCase(); list = list.filter(a => (a.title + ' ' + a.artist).toLowerCase().includes(q)); }
-  const sorters = {
-    recent: (a, b) => ((status === 'heard' ? b.heardAt : b.addedAt) || 0) - ((status === 'heard' ? a.heardAt : a.addedAt) || 0),
-    artist: (a, b) => a.artist.localeCompare(b.artist, 'zh-Hant') || (a.year || '').localeCompare(b.year || ''),
-    year: (a, b) => (b.year || '').localeCompare(a.year || ''),
-    rating: (a, b) => (b.rating || 0) - (a.rating || 0)
-  };
-  list.sort(sorters[state.libSort] || sorters.recent);
+  const so = sortOf(status), sdef = SORTS[so.key];
+  list.sort((a, b) => { const r = sdef.cmp(a, b, status) || timeOf(a, status) - timeOf(b, status); return so.desc ? -r : r; });
   remember(list);
+  const nums = numbering(status);
   const isH = status === 'heard';
   app.innerHTML = `
-    <header class="top"><div><h1>${isH ? '已聽過' : '想聽'}</h1><div class="sub">${total} 張唱片 · ${artists} 位歌手</div></div>${gearBtn()}</header>
+    <header class="top"><div><h1>${isH ? '已聽過' : '想聽'}</h1><div class="sub">${total} 張唱片 · ${artists} 位歌手${list.length !== total ? ` · 目前顯示 ${list.length} 張` : ''}</div></div>${gearBtn()}</header>
     ${total ? `<div class="search">${I.search}<input id="lq" type="search" placeholder="在${isH ? '已聽過' : '想聽'}裡搜尋" value="${esc(state.libQ)}"></div>
     <div class="chips">
       ${[['all', '全部'], ['Album', '專輯'], ['EP', 'EP'], ['Single', '單曲']].map(([k, l]) => `<button class="chip ${state.libFilter === k ? 'on' : ''}" data-lf="${k}">${l}</button>`).join('')}
-      <span style="flex:1"></span>
-      ${[['recent', '最近'], ['artist', '歌手'], ['year', '年份'], ...(isH ? [['rating', '評分']] : [])].map(([k, l]) => `<button class="chip ${state.libSort === k ? 'on' : ''}" data-ls="${k}">${l}</button>`).join('')}
     </div>
-    ${list.length ? `<div class="grid">${list.map(albumCard).join('')}</div>` : '<div class="empty">沒有符合的唱片</div>'}`
+    <div class="row-between" style="margin-bottom:12px">
+      <button class="sort-btn" data-act="sortMenu">${I.sort}<span>${sdef.label(status)}</span><span class="muted">${sdef.dirs[so.desc ? 1 : 0]}</span></button>
+      <button class="icon-btn" data-act="sortFlip" aria-label="反轉順序" style="width:34px;height:34px">${I.flip}</button>
+    </div>
+    ${list.length ? `<div class="grid">${list.map(a => albumCard(a, nums.get(albumKey(a)))).join('')}</div>` : '<div class="empty">沒有符合的唱片</div>'}`
     : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「探索」找專輯，點 ${isH ? '＋ 標記已聽過' : '🔖 加入想聽'}</div>`}`;
   const lq = $('#lq'); if (lq) lq.oninput = e => { state.libQ = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#lq'); n.focus(); n.setSelectionRange(pos, pos); };
+}
+
+/* ---------- 排序 ---------- */
+const colStroke = new Intl.Collator('zh-Hant-TW-u-co-stroke', { numeric: true, sensitivity: 'base' });
+const colZhuyin = new Intl.Collator('zh-Hant-TW-u-co-zhuyin', { numeric: true, sensitivity: 'base' });
+const timeOf = (a, st) => (st === 'heard' ? a.heardAt : a.addedAt) || a.addedAt || 0;
+// 每個排序：cmp 是「遞增」比較；dirs[0] 是遞增的說法、dirs[1] 是遞減；def 為預設是否遞減
+const SORTS = {
+  time:   { label: st => st === 'heard' ? '聽過時間' : '加入時間', dirs: ['舊 → 新', '新 → 舊'], def: true,  cmp: (a, b, st) => timeOf(a, st) - timeOf(b, st) },
+  title:  { label: () => '專輯名稱・筆畫', dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.title, b.title) },
+  artist: { label: () => '歌手・筆畫',     dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.artist, b.artist) || (a.year || '').localeCompare(b.year || '') },
+  titleZ: { label: () => '專輯名稱・注音', dirs: ['ㄅ → ㄦ', 'ㄦ → ㄅ'], def: false, cmp: (a, b) => colZhuyin.compare(a.title, b.title) },
+  artistZ:{ label: () => '歌手・注音',     dirs: ['ㄅ → ㄦ', 'ㄦ → ㄅ'], def: false, cmp: (a, b) => colZhuyin.compare(a.artist, b.artist) || (a.year || '').localeCompare(b.year || '') },
+  year:   { label: () => '發行年份',       dirs: ['舊 → 新', '新 → 舊'], def: true,  cmp: (a, b) => (a.year || '').localeCompare(b.year || '') },
+  rating: { label: () => '評分',           dirs: ['低 → 高', '高 → 低'], def: true,  cmp: (a, b) => (a.rating || 0) - (b.rating || 0), only: 'heard' }
+};
+function sortOf(st) {
+  db.settings.sort ??= {};
+  const s = db.settings.sort[st];
+  return s && SORTS[s.key] && (!SORTS[s.key].only || SORTS[s.key].only === st) ? s : { key: 'time', desc: true };
+}
+function setSort(st, key) {
+  const cur = sortOf(st);
+  db.settings.sort[st] = cur.key === key ? { key, desc: !cur.desc } : { key, desc: SORTS[key].def };
+  save();
+}
+// 編號：依標記時間由舊到新，第一張是 #1，不受排序或篩選影響
+function numbering(st) {
+  const m = new Map();
+  Object.values(db.albums).filter(a => a.status === st)
+    .sort((a, b) => timeOf(a, st) - timeOf(b, st) || colStroke.compare(a.title, b.title))
+    .forEach((a, i) => m.set(albumKey(a), i + 1));
+  return m;
+}
+function openSortMenu() {
+  state.current = null;
+  const st = state.tab, cur = sortOf(st);
+  $('#sheet').innerHTML = `<div class="grab"></div><h2 style="margin:0 0 4px">排序方式</h2>
+    <div class="muted small" style="margin-bottom:8px">再點一次同一個選項可以反轉順序</div>
+    <div class="list">${Object.entries(SORTS).filter(([, o]) => !o.only || o.only === st).map(([k, o]) => {
+      const on = cur.key === k, desc = on ? cur.desc : o.def;
+      return `<button class="li sort-opt ${on ? 'on' : ''}" data-sort="${k}">
+        <div class="grow"><div class="name">${o.label(st)}</div><div class="muted small">${o.dirs[desc ? 1 : 0]}</div></div>
+        ${on ? `<span class="sort-check">${I.check}</span>` : ''}</button>`;
+    }).join('')}</div>`;
+  showSheet();
 }
 
 /* ---------- 歌手 ---------- */
@@ -660,7 +706,7 @@ $('#importFile').onchange = async e => {
 
 /* ================= 事件 ================= */
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-heard],[data-want],[data-open],[data-name],[data-tab],[data-mode],[data-lf],[data-ls],[data-star],[data-act]');
+  const t = e.target.closest('[data-heard],[data-want],[data-open],[data-name],[data-tab],[data-mode],[data-lf],[data-sort],[data-star],[data-act]');
   if (!t) return;
   const d = t.dataset;
   if (d.heard !== undefined) { e.stopPropagation(); return toggle(d.heard, 'heard'); }
@@ -671,18 +717,20 @@ document.addEventListener('click', async e => {
     state.view = { type: 'artist', id: d.artist || '', name: d.name }; window.scrollTo(0, 0); return render();
   }
   if (d.tab) {
-    if (d.tab !== state.tab) { state.libFilter = 'all'; state.libSort = 'recent'; state.libQ = ''; }
+    if (d.tab !== state.tab) { state.libFilter = 'all'; state.libQ = ''; }
     else if (d.tab === 'search' && !state.view) { state.results = null; state.q = ''; }
     state.tab = d.tab; state.view = null; window.scrollTo(0, 0); return render();
   }
   if (d.mode) { state.mode = d.mode; state.results = null; render(); if (state.q) doSearch(state.q); return; }
   if (d.lf) { state.libFilter = d.lf; return render(); }
-  if (d.ls) { state.libSort = d.ls; return render(); }
+  if (d.sort) { setSort(state.tab, d.sort); hideSheet(); window.scrollTo(0, 0); return render(); }
   if (d.star) { const a = db.albums[state.current]; a.rating = a.rating == +d.star ? 0 : +d.star; touch(state.current); return renderSheet(); }
   switch (d.act) {
     case 'back': state.view = null; return render();
     case 'clear': state.results = null; state.q = ''; return render();
     case 'menu': return openMenu();
+    case 'sortMenu': return openSortMenu();
+    case 'sortFlip': { const c = sortOf(state.tab); db.settings.sort[state.tab] = { key: c.key, desc: !c.desc }; save(); return render(); }
     case 'manual': return openManual();
     case 'export': return exportData();
     case 'import': return $('#importFile').click();
