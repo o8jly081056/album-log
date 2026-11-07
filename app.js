@@ -492,8 +492,7 @@ function setSort(st, key) {
 function openSortMenu() {
   state.current = null;
   const st = state.tab, cur = sortOf(st);
-  $('#sheet').innerHTML = `<div class="grab"></div><h2 style="margin:0 0 4px">排序方式</h2>
-    <div class="muted small" style="margin-bottom:8px">再點一次同一個選項可以反轉順序</div>
+  $('#sheet').innerHTML = `<div class="grab"></div><h2 style="margin:0 0 8px">排序方式</h2>
     <div class="list">${Object.entries(SORTS).filter(([, o]) => !o.only || o.only === st).map(([k, o]) => {
       const on = cur.key === k, desc = on ? cur.desc : o.def;
       return `<button class="li sort-opt ${on ? 'on' : ''}" data-sort="${k}">
