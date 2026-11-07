@@ -632,7 +632,7 @@ function renderSheet() {
     <div class="by"><button data-artist="${a.artistId || ''}" data-name="${esc(a.artist)}" style="color:inherit;font-weight:inherit">${esc(a.artist)} ›</button></div>
     <div class="meta">${typeLabel(a.type)}${a.year ? ' · ' + a.year : ''}${(tracks?.length || a.tracks) ? ' · ' + (tracks?.length || a.tracks) + ' 首' : ''}${totalMs ? ' · ' + fmtTotal(totalMs) : tracks === undefined && !a.manual ? ' · <span class="muted">計算時長…</span>' : ''}</div>
     <div class="two">
-      <button class="big-btn ${st === 'want' ? 'want' : ''}" style="flex:0 0 38%" data-want="${esc(k)}">${st === 'want' ? I.markOn : I.mark} 想聽</button>
+      <button class="big-btn ${st === 'want' ? 'want' : ''}" data-want="${esc(k)}">${st === 'want' ? I.markOn : I.mark} 想聽</button>
       <button class="big-btn ${st === 'heard' ? 'heard' : 'solid'}" data-heard="${esc(k)}">${I.check} ${st === 'heard' ? '已聽過' : '標記已聽過'}</button>
     </div>
     ${st === 'heard' ? `
