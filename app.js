@@ -607,7 +607,7 @@ async function renderArtist(app) {
       const h = g.filter(a => statusOf(albumKey(a)) === 'heard').length;
       return `<div class="section-h"><span>${l} · ${h}/${g.length}</span></div><div class="grid">${g.map(a => albumCard(a)).join('')}</div>`;
     }).join('')}
-    ${!all.length ? '<div class="empty">這個分類沒有作品</div>' : '<div class="empty small">資料來自 Spotify。EP 依 Spotify 的單曲／專輯分類與曲數判斷，可能不完全準確</div>'}`;
+    ${!all.length ? '<div class="empty">這個分類沒有作品</div>' : ''}`;
 }
 
 /* ================= 專輯詳情 ================= */
