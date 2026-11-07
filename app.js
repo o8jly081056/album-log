@@ -286,10 +286,10 @@ const filterTypes = list => db.settings.showSingles ? list : list.filter(a => a.
 const typeLabel = t => ({ Album: '專輯', EP: 'EP', Single: '單曲' })[t] || t;
 
 const I = {
-  check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17 19 7"/></svg>',
+  check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 9.5 17.5 19.5 6.5"/></svg>',
   plus: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
-  mark: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
-  markOn: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
+  mark: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12v17l-6-4-6 4z"/></svg>',
+  markOn: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12v17l-6-4-6 4z"/></svg>',
   search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
   gear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
   sort: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
@@ -317,7 +317,7 @@ function albumCard(a, no) {
       ${a.type !== 'Album' ? `<span class="badge">${typeLabel(a.type)}</span>` : ''}
       <div class="acts">
         ${s !== 'heard' ? `<button class="mini ${s === 'want' ? 'want' : ''}" data-want="${esc(k)}" aria-label="想聽">${s === 'want' ? I.markOn : I.mark}</button>` : ''}
-        <button class="mini ${s === 'heard' ? 'heard' : ''}" data-heard="${esc(k)}" aria-label="已聽過">${s === 'heard' ? I.check : I.plus}</button>
+        <button class="mini ${s === 'heard' ? 'heard' : ''}" data-heard="${esc(k)}" aria-label="已聽過">${s === 'heard' ? I.check : I.check}</button>
       </div>
     </div>
     <div class="t">${no ? `<span class="no">#${no}</span>` : ''}${esc(a.title)}</div>
@@ -340,7 +340,7 @@ function albumRow(a, no) {
     </div>
     <div class="arow-acts">
       ${s !== 'heard' ? `<button class="mini ${s === 'want' ? 'want' : ''}" data-want="${esc(k)}" aria-label="想聽">${s === 'want' ? I.markOn : I.mark}</button>` : ''}
-      <button class="mini ${s === 'heard' ? 'heard' : ''}" data-heard="${esc(k)}" aria-label="已聽過">${s === 'heard' ? I.check : I.plus}</button>
+      <button class="mini ${s === 'heard' ? 'heard' : ''}" data-heard="${esc(k)}" aria-label="已聽過">${s === 'heard' ? I.check : I.check}</button>
     </div>
   </div>`;
 }
@@ -384,29 +384,18 @@ function renderSearch(app) {
 function homeHTML() {
   if (!CFG.SPOTIFY_CLIENT_ID) return `<div class="empty"><b>找一張你聽過的唱片</b>輸入歌手或專輯名稱<br>點 ＋ 標記「已聽過」，點 🔖 加入「想聽」</div>`;
   if (!spOn()) return `<div class="panel" style="text-align:center;margin-top:8px">
-      <b>連結 Spotify</b><div class="muted small" style="margin:4px 0 12px">看到「正在播放」和「最近聽的專輯」，一鍵手動標記</div>
+      <b>連結 Spotify</b><div class="muted small" style="margin:4px 0 12px">看到最近播放和收藏的專輯，一鍵手動標記</div>
       <button class="btn primary" data-act="spLogin">連結 Spotify</button></div>
     <div class="empty small">也可以直接在上面搜尋任何專輯</div>`;
   const s = state.sp;
   const sec = (title, inner, extra = '') => `<div class="section-h"><span>${title}</span>${extra}</div>${inner}`;
-  const np = s.np === undefined ? '<div class="spinner sm"></div>'
-    : !s.np ? '<div class="panel muted small">Spotify 目前沒有在播放</div>'
-    : (() => { const a = s.np.album, k = albumKey(a), st = statusOf(k); return `<div class="panel"><div class="np" data-open="${esc(k)}">
-        <div class="c">${a.cover ? `<img src="${esc(a.cover)}" alt="">` : ''}</div>
-        <div class="grow"><div class="small muted">${s.np.playing ? '<span class="eq"><i></i><i></i><i></i></span>' : '⏸ '}${esc(s.np.track)}</div>
-          <div style="font-weight:700">${esc(a.title)}</div><div class="muted small">${esc(a.artist)} · ${typeLabel(a.type)}</div></div></div>
-        <div class="two" style="margin-top:12px">
-          <button class="big-btn ${st === 'want' ? 'want' : ''}" style="height:42px;font-size:14px" data-want="${esc(k)}">${st === 'want' ? I.markOn + ' 想聽' : I.mark + ' 想聽'}</button>
-          <button class="big-btn ${st === 'heard' ? 'heard' : 'solid'}" style="height:42px;font-size:14px" data-heard="${esc(k)}">${st === 'heard' ? I.check + ' 已聽過' : I.plus + ' 標記已聽過'}</button>
-        </div></div>`; })();
   const recent = s.recent === undefined ? '<div class="spinner sm"></div>'
     : s.recent.length ? `<div class="hscroll">${filterTypes(s.recent).map(albumCard).join('')}</div>` : '<div class="muted small">沒有最近播放紀錄</div>';
   const saved = s.saved === undefined ? '<div class="spinner sm"></div>'
     : s.saved.length ? `<div class="grid">${s.saved.map(albumCard).join('')}</div>${s.savedNext != null ? '<div style="text-align:center;margin-top:14px"><button class="btn sm" data-act="spMore">載入更多</button></div>' : ''}` : '<div class="muted small">你在 Spotify 沒有收藏專輯</div>';
   const unheard = s.saved ? s.saved.filter(a => statusOf(albumKey(a)) !== 'heard').length : 0;
   return `${s.err ? `<div class="panel err">${esc(s.err)}</div>` : ''}
-    ${sec('正在播放', np, '<button class="btn sm" data-act="spRefresh">重新整理</button>')}
-    ${sec('最近播放的專輯', recent)}
+    ${sec('最近播放的專輯', recent, '<button class="btn sm" data-act="spRefresh">重新整理</button>')}
     ${sec(`你在 Spotify 收藏的專輯${s.savedTotal ? ` · ${s.savedTotal}` : ''}`, saved, s.saved ? `<span class="small">${unheard} 張還沒標記</span>` : '')}`;
 }
 
@@ -417,26 +406,15 @@ async function loadSpotifyHome(force) {
   if (!force && s.loadedAt && Date.now() - s.loadedAt < 60000) return;
   spLoading = true; s.loadedAt = Date.now(); s.err = '';
   const tasks = [
-    spNowPlaying().then(v => s.np = v),
     spRecent().then(v => s.recent = v),
     (s.saved && !force) ? null : spSaved(0).then(v => { s.saved = v.list; s.savedNext = v.next; s.savedTotal = v.total; })
   ].filter(Boolean);
   const res = await Promise.allSettled(tasks);
   const fail = res.find(x => x.status === 'rejected');
-  if (fail) { s.err = fail.reason.message; s.np ??= null; s.recent ??= []; s.saved ??= []; }
+  if (fail) { s.err = fail.reason.message; s.recent ??= []; s.saved ??= []; }
   spLoading = false;
   if (state.tab === 'search' && !state.view && !state.results && !state.current) render();
 }
-// 每 20 秒更新正在播放（只在探索頁、App 在前景時）
-setInterval(async () => {
-  if (!spOn() || document.hidden || state.tab !== 'search' || state.view || state.results || state.current) return;
-  try {
-    const v = await spNowPlaying();
-    const changed = albumKey(v?.album || {}) !== albumKey(state.sp.np?.album || {}) || v?.track !== state.sp.np?.track || v?.playing !== state.sp.np?.playing;
-    state.sp.np = v; if (changed && !state.current && state.tab === 'search' && !state.results) render();
-  } catch (e) {}
-}, 20000);
-
 async function doSearch(q) {
   if (!q) return;
   state.q = q; state.loading = true; render();
@@ -576,13 +554,30 @@ async function renderArtist(app) {
 }
 
 /* ================= 專輯詳情 ================= */
+// 總時長：1 小時 12 分 / 42 分 18 秒
+function fmtTotal(ms) {
+  const sec = Math.round(ms / 1000), h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s2 = sec % 60;
+  return h ? `${h} 小時 ${m} 分` : `${m} 分 ${s2} 秒`;
+}
+let sheetOpenedAt = 0, sheetToken = 0;
 function showSheet() {
   const s = $('#sheet');
   s.scrollTop = 0;
-  $('#scrim').classList.add('show'); s.classList.add('show');
-  document.documentElement.classList.add('sheet-open');
+  if (s.classList.contains('show')) return;
+  void s.offsetHeight;               // 先排版好內容，下一個畫格才開始滑入，避免第一格卡頓
+  sheetOpenedAt = performance.now();
+  const tk = ++sheetToken;
+  const go = () => {
+    if (tk !== sheetToken || s.classList.contains('show')) return;
+    $('#scrim').classList.add('show'); s.classList.add('show');
+    document.documentElement.classList.add('sheet-open');
+  };
+  requestAnimationFrame(go); setTimeout(go, 40);   // 背景分頁不跑 rAF 時的保險
 }
+// 等打開動畫結束後才做的事（避免動畫途中重排畫面）
+function afterSheetOpen(fn) { setTimeout(fn, Math.max(0, 440 - (performance.now() - sheetOpenedAt))); }
 function hideSheet() {
+  sheetToken++;
   $('#scrim').classList.remove('show'); $('#sheet').classList.remove('show');
   document.documentElement.classList.remove('sheet-open');
   state.current = null;
@@ -602,28 +597,43 @@ async function loadTracks(k) {
       t = r.filter(x => x.wrapperType === 'track').map(x => ({ n: x.trackNumber, name: x.trackName, ms: x.trackTimeMillis }));
     }
     const s = seen.get(k); if (s) s._tracks = t; else seen.set(k, { ...a, _tracks: t });
-    if (state.current === k) renderSheet();
-  } catch (e) {}
+    if (state.current === k) afterSheetOpen(() => { if (state.current === k) renderSheet(); });
+  } catch (e) {
+    const s = seen.get(k); if (s && !s._tracks) { s._tracks = []; if (state.current === k) renderSheet(); }
+  }
 }
-function openAlbum(k) {
+async function openAlbum(k) {
   if (!findAlbum(k)) return;
-  state.current = k; renderSheet(); showSheet(); loadTracks(k);
+  state.current = k; renderSheet();
+  // 封面先解碼完再滑入，避免滑到一半才解圖造成掉幀（最多等 150ms）
+  const img = $('#sheet .detail-cover img');
+  if (img?.decode) await Promise.race([img.decode().catch(() => {}), sleep(150)]);
+  if (state.current !== k) return;
+  showSheet(); loadTracks(k);
 }
 function renderSheet() {
   const k = state.current; const saved = db.albums[k]; const a = saved || seen.get(k); if (!a) return;
+  const keepImg = $('#sheet .detail-cover img');
+  const keepTop = $('#sheet').scrollTop;
+  queueMicrotask(() => {
+    const ph = $('#sheet .detail-cover img');
+    if (keepImg && ph && keepImg.src === ph.src && keepImg !== ph) ph.replaceWith(keepImg);
+    $('#sheet').scrollTop = keepTop;
+  });
   const st = saved?.status || null;
   const tracks = seen.get(k)?._tracks;
   const spotify = a.spotifyId ? `https://open.spotify.com/album/${a.spotifyId}` : `https://open.spotify.com/search/${encodeURIComponent(a.artist + ' ' + a.title)}`;
+  const totalMs = (tracks || []).reduce((t, x) => t + (x.ms || 0), 0);
   const fmt = ms => ms ? `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}` : '';
   $('#sheet').innerHTML = `<div class="grab"></div><div class="detail">
     ${state.npKey === k && state.sp.np ? `<div style="text-align:center;margin:-4px 0 10px" class="small muted">${state.sp.np.playing ? '<span class="eq"><i></i><i></i><i></i></span>正在播放' : '⏸ 暫停中'}：${esc(state.sp.np.track)}</div>` : ''}
     <div class="detail-cover">${a.cover ? `<img src="${esc(a.cover)}" alt="">` : '<div class="ph" style="font-size:60px">♪</div>'}</div>
     <h2>${esc(a.title)}</h2>
     <div class="by"><button data-artist="${a.artistId || ''}" data-name="${esc(a.artist)}" style="color:inherit;font-weight:inherit">${esc(a.artist)} ›</button></div>
-    <div class="meta">${typeLabel(a.type)}${a.year ? ' · ' + a.year : ''}${a.tracks ? ' · ' + a.tracks + ' 首' : ''}</div>
+    <div class="meta">${typeLabel(a.type)}${a.year ? ' · ' + a.year : ''}${(tracks?.length || a.tracks) ? ' · ' + (tracks?.length || a.tracks) + ' 首' : ''}${totalMs ? ' · ' + fmtTotal(totalMs) : tracks === undefined && !a.manual ? ' · <span class="muted">計算時長…</span>' : ''}</div>
     <div class="two">
       <button class="big-btn ${st === 'want' ? 'want' : ''}" style="flex:0 0 38%" data-want="${esc(k)}">${st === 'want' ? I.markOn : I.mark} 想聽</button>
-      <button class="big-btn ${st === 'heard' ? 'heard' : 'solid'}" data-heard="${esc(k)}">${st === 'heard' ? I.check + ' 已聽過' : I.plus + ' 標記已聽過'}</button>
+      <button class="big-btn ${st === 'heard' ? 'heard' : 'solid'}" data-heard="${esc(k)}">${I.check} ${st === 'heard' ? '已聽過' : '標記已聽過'}</button>
     </div>
     ${st === 'heard' ? `
       <div class="stars">${[1, 2, 3, 4, 5].map(n => `<button class="${(a.rating || 0) >= n ? 'on' : ''}" data-star="${n}" aria-label="${n} 星">★</button>`).join('')}</div>
@@ -769,7 +779,7 @@ document.addEventListener('click', async e => {
     case 'import': return $('#importFile').click();
     case 'spLogin': return spotifyLogin();
     case 'spLogout': spotifyLogout(); toast('已中斷 Spotify'); return openMenu();
-    case 'spRefresh': state.sp.np = undefined; render(); return loadSpotifyHome(true);
+    case 'spRefresh': state.sp.recent = undefined; render(); return loadSpotifyHome(true);
     case 'spMore': {
       t.disabled = true; t.textContent = '載入中…';
       try { const v = await spSaved(state.sp.savedNext); state.sp.saved.push(...v.list); state.sp.savedNext = v.next; } catch (err) { toast(err.message); }
