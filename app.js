@@ -87,24 +87,27 @@ function ask({ title, msg = '', ok = '確定', cancel = '保留' }) {
     requestAnimationFrame(() => el.classList.add('show'));
   });
 }
-const statusName = s => s === 'heard' ? '已聽過' : '想聽';
+const statusName = s => ({ heard: '已聽過', want: '想聽', archived: '封存' })[s] || s;
+// 「完成」：已聽過或封存，進度條都算進去
+const isDone = s => s === 'heard' || s === 'archived';
 async function toggle(k, status) {
   const was = statusOf(k);
   const a = db.albums[k];
-  // 取消標記，或把「已聽過」改成「想聽」時，先確認
+  // 取消標記，或把「已聽過」改成其他狀態時，先確認
   if (a && (was === status || was === 'heard')) {
     const removing = was === status;
     const extra = removing && a.manual ? '<br><b>這是手動新增的唱片，取消後整筆資料會刪除。</b>'
       : removing && (a.rating || a.note) ? '<br>評分和筆記也會一起清除。' : '';
     const ok = await ask({
-      title: removing ? `取消「${statusName(was)}」？` : '從「已聽過」改成「想聽」？',
+      title: removing ? `取消「${statusName(was)}」？` : `從「已聽過」改成「${statusName(status)}」？`,
       msg: `<b>${esc(a.title)}</b><br><span class="muted">${esc(a.artist)}</span>${extra}`,
-      ok: removing ? `取消${statusName(was)}` : '改成想聽'
+      ok: removing ? `取消${statusName(was)}` : `改成${statusName(status)}`
     });
     if (!ok) return;
   }
   if (setStatus(k, was === status ? null : status) === false) return;
-  toast(was === status ? (status === 'heard' ? '已取消「已聽過」' : '已移出想聽') : (status === 'heard' ? '✓ 已聽過' : '已加入想聽'));
+  toast(was === status ? ({ heard: '已取消「已聽過」', want: '已移出想聽', archived: '已取消封存' })[status]
+    : ({ heard: '✓ 已聽過', want: '已加入想聽', archived: '已封存' })[status]);
   if (state.current) renderSheet();
   render();
 }
@@ -319,6 +322,7 @@ const I = {
   markOn: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12v17l-6-4-6 4z"/></svg>',
   search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
   gear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  archive: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.2"/><path d="M5 9v10.5a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5V9M10 13.5h4"/></svg>',
   sort: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
   flip: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>',
   v_grid: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>',
@@ -333,6 +337,7 @@ function render() {
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === state.tab && !state.view));
   const app = $('#app');
   if (state.view?.type === 'artist') return renderArtist(app);
+  if (state.view?.type === 'archive') return renderArchive(app);
   ({ search: renderSearch, heard: renderLib, want: renderLib, artists: renderArtists })[state.tab](app);
 }
 
@@ -343,12 +348,13 @@ function albumCard(a, no) {
       ${a.cover ? `<img loading="lazy" src="${esc(a.cover)}" alt="">` : '<div class="ph">♪</div>'}
       ${a.type !== 'Album' ? `<span class="badge">${typeLabel(a.type)}</span>` : ''}
       <div class="acts">
-        ${s !== 'heard' ? `<button class="mini ${s === 'want' ? 'want' : ''}" data-want="${esc(k)}" aria-label="想聽">${s === 'want' ? I.markOn : I.mark}</button>` : ''}
+        ${!isDone(s) ? `<button class="mini ${s === 'want' ? 'want' : ''}" data-want="${esc(k)}" aria-label="想聽">${s === 'want' ? I.markOn : I.mark}</button>` : ''}
+        ${s !== 'heard' ? `<button class="mini ${s === 'archived' ? 'arch' : ''}" data-arch="${esc(k)}" aria-label="封存">${I.archive}</button>` : ''}
         <button class="mini ${s === 'heard' ? 'heard' : ''}" data-heard="${esc(k)}" aria-label="已聽過">${s === 'heard' ? I.check : I.check}</button>
       </div>
     </div>
     <div class="t">${no ? `<span class="no">#${no}</span>` : ''}${esc(a.title)}</div>
-    <div class="a">${s === 'heard' ? '<span class="lbl-w"><span class="lbl heard">✓ 已聽過</span> · </span>' : s === 'want' ? '<span class="lbl-w"><span class="lbl want">想聽</span> · </span>' : ''}${esc(a.artist)}${a.year ? ' · ' + a.year : ''}</div>
+    <div class="a">${s === 'heard' ? '<span class="lbl-w"><span class="lbl heard">✓ 已聽過</span> · </span>' : s === 'want' ? '<span class="lbl-w"><span class="lbl want">想聽</span> · </span>' : s === 'archived' ? '<span class="lbl-w"><span class="lbl arch">已封存</span> · </span>' : ''}${esc(a.artist)}${a.year ? ' · ' + a.year : ''}</div>
   </div>`;
 }
 
@@ -365,7 +371,8 @@ function albumRow(a, no) {
       <div class="arow-m">${typeLabel(a.type)}${a.year ? ' · ' + a.year : ''}${stars}</div>
     </div>
     <div class="arow-acts">
-      ${s !== 'heard' ? `<button class="mini ${s === 'want' ? 'want' : ''}" data-want="${esc(k)}" aria-label="想聽">${s === 'want' ? I.markOn : I.mark}</button>` : ''}
+      ${!isDone(s) ? `<button class="mini ${s === 'want' ? 'want' : ''}" data-want="${esc(k)}" aria-label="想聽">${s === 'want' ? I.markOn : I.mark}</button>` : ''}
+        ${s !== 'heard' ? `<button class="mini ${s === 'archived' ? 'arch' : ''}" data-arch="${esc(k)}" aria-label="封存">${I.archive}</button>` : ''}
       <button class="mini ${s === 'heard' ? 'heard' : ''}" data-heard="${esc(k)}" aria-label="已聽過">${s === 'heard' ? I.check : I.check}</button>
     </div>
   </div>`;
@@ -447,7 +454,7 @@ function renderLib(app) {
   const total = list.length, artists = new Set(list.map(a => norm(a.artist))).size;
   if (state.libFilter) list = list.filter(a => inGroup(a, state.libFilter));
   if (state.libQ) { const q = state.libQ.toLowerCase(); list = list.filter(a => (a.title + ' ' + a.artist).toLowerCase().includes(q)); }
-  const so = sortOf(status), sdef = SORTS[so.key];
+  const so = sortOf(status), sdef = sortsFor(status)[so.key];
   list.sort((a, b) => { const r = sdef.cmp(a, b, status) || timeOf(a, status) - timeOf(b, status); return so.desc ? -r : r; });
   remember(list);
   const isH = status === 'heard';
@@ -466,7 +473,8 @@ function renderLib(app) {
     ${!list.length ? '<div class="empty">沒有符合的唱片</div>'
       : view === 'list' ? `<div class="alist">${list.map((a, i) => albumRow(a, list.length - i)).join('')}</div>`
       : `<div class="grid ${view === 'small' ? 'small' : ''}">${list.map((a, i) => albumCard(a, list.length - i)).join('')}</div>`}`
-    : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「探索」找專輯，點 <span class="inline-ic">${isH ? I.check : I.mark}</span> ${isH ? '標記已聽過' : '加入想聽'}</div>`}`;
+    : `<div class="empty"><b>${isH ? '還沒有已聽過的唱片' : '想聽清單是空的'}</b>到「探索」找專輯，點 <span class="inline-ic">${isH ? I.check : I.mark}</span> ${isH ? '標記已聽過' : '加入想聽'}</div>`}
+    ${isH && archiveCount() ? `<button class="archive-link" data-act="archive">${I.archive}已封存 ${archiveCount()} 張 ›</button>` : ''}`;
   const lq = $('#lq'); if (lq) lq.oninput = e => { state.libQ = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#lq'); n.focus(); n.setSelectionRange(pos, pos); };
 }
 
@@ -479,21 +487,27 @@ const SORTS = {
   title:  { label: () => '專輯名稱', dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.title, b.title) },
   artist: { label: () => '歌手',     dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.artist, b.artist) || (a.year || '').localeCompare(b.year || '') }
 };
+// 歌手頁的排序：筆畫、聽過進度
+const ARTIST_SORTS = {
+  pct:  { label: () => '聽過進度', dirs: ['低 → 高', '高 → 低'], def: true,  cmp: (a, b) => (a.pg ? a.pg.pct : -1) - (b.pg ? b.pg.pct : -1) || (a.pg?.heard || a.heard.length) - (b.pg?.heard || b.heard.length) },
+  name: { label: () => '歌手',     dirs: ['少 → 多', '多 → 少'], def: false, cmp: (a, b) => colStroke.compare(a.name, b.name) }
+};
+const sortsFor = st => st === 'artists' ? ARTIST_SORTS : SORTS;
 function sortOf(st) {
   db.settings.sort ??= {};
-  const s = db.settings.sort[st];
-  return s && SORTS[s.key] && (!SORTS[s.key].only || SORTS[s.key].only === st) ? s : { key: 'time', desc: true };
+  const s = db.settings.sort[st], S = sortsFor(st);
+  return s && S[s.key] ? s : (st === 'artists' ? { key: 'pct', desc: true } : { key: 'time', desc: true });
 }
 function setSort(st, key) {
   const cur = sortOf(st);
-  db.settings.sort[st] = cur.key === key ? { key, desc: !cur.desc } : { key, desc: SORTS[key].def };
+  db.settings.sort[st] = cur.key === key ? { key, desc: !cur.desc } : { key, desc: sortsFor(st)[key].def };
   save();
 }
 function openSortMenu() {
   state.current = null;
   const st = state.tab, cur = sortOf(st);
   $('#sheet').innerHTML = `<div class="grab"></div><h2 style="margin:0 0 8px">排序方式</h2>
-    <div class="list">${Object.entries(SORTS).filter(([, o]) => !o.only || o.only === st).map(([k, o]) => {
+    <div class="list">${Object.entries(sortsFor(st)).map(([k, o]) => {
       const on = cur.key === k, desc = on ? cur.desc : o.def;
       return `<button class="li sort-opt ${on ? 'on' : ''}" data-sort="${k}">
         <div class="grow"><div class="name">${o.label(st)}</div><div class="muted small">${o.dirs[desc ? 1 : 0]}</div></div>
@@ -501,6 +515,16 @@ function openSortMenu() {
     }).join('')}</div>`;
   showSheet();
 }
+
+/* ---------- 封存 ---------- */
+function renderArchive(app) {
+  const list = remember(Object.values(db.albums).filter(a => a.status === 'archived').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)));
+  app.innerHTML = `<button class="back" data-act="back">${I.back}返回</button>
+    <header class="top"><div><h1>已封存</h1><div class="sub">${list.length} 張唱片</div></div></header>
+    ${list.length ? `<div class="grid small">${list.map(a => albumCard(a)).join('')}</div>`
+      : '<div class="empty">沒有封存的唱片</div>'}`;
+}
+const archiveCount = () => Object.values(db.albums).filter(a => a.status === 'archived').length;
 
 /* ---------- 歌手 ---------- */
 /* 歌手完整作品數的快取（只存在這台裝置），讓歌手列表不用點進去就能看到聽過百分比 */
@@ -514,7 +538,7 @@ function artistProgress(name) {
   const c = artistTotals[norm(name)]; if (!c) return null;
   const local = Object.values(db.albums).filter(a => norm(a.artist) === norm(name));
   const all = new Set([...c.keys, ...local.map(albumKey)]);
-  const heard = local.filter(a => a.status === 'heard').length;
+  const heard = local.filter(a => isDone(a.status)).length;
   return { heard, total: all.size, pct: all.size ? Math.round(heard / all.size * 100) : 0 };
 }
 const atQueue = new Set(); let atRunning = 0, atRenderT = null;
@@ -546,14 +570,21 @@ function renderArtists(app) {
     const k = norm(a.artist);
     if (!map.has(k)) map.set(k, { id: '', name: a.artist, heard: [], want: [] });
     const g = map.get(k); if (a.artistId) g.id = a.artistId;
-    g[a.status === 'want' ? 'want' : 'heard'].push(a);
+    g[a.status === 'want' ? 'want' : 'heard'].push(a);   // 封存算在已聽過
   });
-  const list = [...map.values()].sort((a, b) => b.heard.length - a.heard.length || a.name.localeCompare(b.name, 'zh-Hant'));
+  const list = [...map.values()];
+  list.forEach(x => { x.pg = artistProgress(x.name); });
+  const so = sortOf('artists'), sdef = ARTIST_SORTS[so.key];
+  list.sort((a, b) => { const r = sdef.cmp(a, b) || colStroke.compare(a.name, b.name); return so.desc ? -r : r; });
   app.innerHTML = `
-    <header class="top"><h1>歌手</h1>${gearBtn()}</header>
+    <header class="top"><div><h1>歌手</h1>${list.length ? `<div class="sub">${list.length} 位歌手</div>` : ''}</div>${gearBtn()}</header>
+    ${list.length ? `<div class="row-between" style="margin-bottom:6px">
+      <button class="sort-btn" data-act="sortMenu">${I.sort}<span>${sdef.label()}</span><span class="muted">${sdef.dirs[so.desc ? 1 : 0]}</span></button>
+      <button class="icon-btn" data-act="sortFlip" aria-label="反轉順序" style="width:34px;height:34px">${I.flip}</button>
+    </div>` : ''}
     ${list.length ? `<div class="list">${list.map(x => {
       const c = (x.heard[0] || x.want[0]).cover;
-      const pg = artistProgress(x.name);
+      const pg = x.pg;
       if (!pg || Date.now() - artistTotals[norm(x.name)].at > AT_TTL) queueArtistTotal(x.name);
       return `<button class="li" data-artist="${x.id}" data-name="${esc(x.name)}">
         <div class="av">${c ? `<img src="${esc(c)}" alt="">` : esc(x.name[0])}</div>
@@ -587,7 +618,7 @@ async function renderArtist(app) {
   const all = own.filter(a => inGroup(a, v.filter));
   const groups = v.filter ? [[v.filter, ARTIST_OPTS.find(o => o[0] === v.filter)[1]]] : RELEASES;
   const counted = all;
-  const heard = counted.filter(a => statusOf(albumKey(a)) === 'heard').length;
+  const heard = counted.filter(a => isDone(statusOf(albumKey(a)))).length;
   const want = counted.filter(a => statusOf(albumKey(a)) === 'want').length;
   const pct = counted.length ? Math.round(heard / counted.length * 100) : 0;
   const cover = all.find(a => a.cover)?.cover;
@@ -603,7 +634,7 @@ async function renderArtist(app) {
     ${groups.map(([t, l]) => {
       const g = all.filter(a => inGroup(a, t));
       if (!g.length) return '';
-      const h = g.filter(a => statusOf(albumKey(a)) === 'heard').length;
+      const h = g.filter(a => isDone(statusOf(albumKey(a)))).length;
       return `<div class="section-h"><span>${l} · ${h}/${g.length}</span></div><div class="grid">${g.map(a => albumCard(a)).join('')}</div>`;
     }).join('')}
     ${!all.length ? '<div class="empty">這個分類沒有作品</div>' : ''}`;
@@ -694,6 +725,7 @@ function renderSheet() {
     <div class="meta">${typeLabel(a.type)}${a.year ? ' · ' + a.year : ''}${(tracks?.length || a.tracks) ? ' · ' + (tracks?.length || a.tracks) + ' 首' : ''}${totalMs ? ' · ' + fmtTotal(totalMs) : tracks === undefined && !a.manual ? ' · <span class="muted">計算時長…</span>' : ''}</div>
     <div class="two">
       <button class="big-btn ${st === 'want' ? 'want' : ''}" data-want="${esc(k)}">${st === 'want' ? I.markOn : I.mark} 想聽</button>
+      <button class="big-btn ${st === 'archived' ? 'arch' : ''}" data-arch="${esc(k)}">${I.archive} 封存</button>
       <button class="big-btn ${st === 'heard' ? 'heard' : 'solid'}" data-heard="${esc(k)}">${I.check} 已聽過</button>
     </div>
     ${st === 'heard' ? `
@@ -733,6 +765,7 @@ function openMenu() {
     <div class="menu-h">SPOTIFY</div>${spBlock}
     <div class="menu-h">資料</div>
     <div class="list">
+      <button class="li" data-act="archive"><div class="grow"><div class="name">已封存的唱片</div><div class="muted small">${archiveCount()} 張 · 封存的唱片在歌手進度中算作已聽過</div></div></button>
       <button class="li" data-act="manual"><div class="grow"><div class="name">手動新增唱片</div><div class="muted small">搜不到的獨立發行或實體 CD</div></div></button>
       <button class="li" data-act="export"><div class="grow"><div class="name">匯出備份</div><div class="muted small">下載 JSON 檔</div></div></button>
       <button class="li" data-act="import"><div class="grow"><div class="name">匯入備份</div><div class="muted small">合併到目前的資料</div></div></button>
@@ -804,11 +837,12 @@ $('#importFile').onchange = async e => {
 
 /* ================= 事件 ================= */
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-heard],[data-want],[data-open],[data-name],[data-tab],[data-f],[data-sort],[data-view],[data-star],[data-act]');
+  const t = e.target.closest('[data-heard],[data-want],[data-arch],[data-open],[data-name],[data-tab],[data-f],[data-sort],[data-view],[data-star],[data-act]');
   if (!t) return;
   const d = t.dataset;
   if (d.heard !== undefined) { e.stopPropagation(); return toggle(d.heard, 'heard'); }
   if (d.want !== undefined) { e.stopPropagation(); return toggle(d.want, 'want'); }
+  if (d.arch !== undefined) { e.stopPropagation(); return toggle(d.arch, 'archived'); }
   if (d.open !== undefined) return openAlbum(d.open);
   if (d.name !== undefined) {
     if ($('#sheet').classList.contains('show')) hideSheet();
@@ -837,6 +871,7 @@ document.addEventListener('click', async e => {
     case 'back': state.view = null; return render();
     case 'clear': state.results = null; state.q = ''; return render();
     case 'menu': return openMenu();
+    case 'archive': hideSheet(); state.view = { type: 'archive' }; window.scrollTo(0, 0); return render();
     case 'sortMenu': return openSortMenu();
     case 'sortFlip': { const c = sortOf(state.tab); db.settings.sort[state.tab] = { key: c.key, desc: !c.desc }; save(); return render(); }
     case 'manual': return openManual();
