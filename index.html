@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121212">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -23,7 +23,7 @@
 html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 -apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Helvetica Neue",sans-serif}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
 a{color:inherit}
-input,textarea,select{font:inherit;color:var(--fg);background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+input,textarea,select{font:inherit;font-size:16px;min-width:0;max-width:100%;color:var(--fg);background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
 input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
 .app{max-width:720px;margin:0 auto;min-height:100vh;padding:calc(var(--safe-t) + 12px) 16px calc(90px + var(--safe-b))}
 header.top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
@@ -134,6 +134,14 @@ html.sheet-open,html.sheet-open body{overflow:hidden;overscroll-behavior:none}
 .toggle input{width:auto}
 .menu-h{font-size:12.5px;color:var(--fg2);margin:20px 0 6px;letter-spacing:1px}
 .err{color:#ff8a8a;font-size:13px;margin-top:8px}
+/* 手機寬度剛好貼合：不允許整頁左右捲動 */
+html{overflow-x:hidden;overscroll-behavior-x:none}
+body{max-width:100%;overflow-x:clip}
+.sheet{overflow-x:hidden}
+img,svg{max-width:100%}
+input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-height:44px;text-align:left}
+input[type=date]::-webkit-date-and-time-value{text-align:left}
+.li .name,.card .t,.card .a{min-width:0}
 .sort-btn{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:999px;background:var(--bg2);font-size:13px;font-weight:600}
 .sort-btn .muted{font-weight:400}
 .sort-opt.on .name{color:var(--accent)}
